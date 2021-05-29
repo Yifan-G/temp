@@ -1,0 +1,13 @@
+networkx
+nltk
+graphviz
+wordcloud
+matplotlib
+natlog
+stanza
+bert-extractive-summarizer
+sumbert
+Flask
+waitress
+streamlit
+langid

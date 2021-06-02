@@ -69,7 +69,9 @@ def evaluate(dataset, predictions):
                     exact_match_score, prediction, ground_truths)
                 f1 += metric_max_over_ground_truths(
                     f1_score, prediction, ground_truths)
-        #if aindex == 0: break
+                #if qindex == 1: break
+            #if pindex ==0: break
+        #if aindex == 3: break
     exact_match = 100.0 * exact_match / total
     f1 = 100.0 * f1 / total
 

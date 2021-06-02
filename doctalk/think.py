@@ -83,33 +83,48 @@ class Thinker(Talker) :
     
     print('\n^^^^^^^^^, think, distil, Talker^^^^^^^^^^^^')
     '''
-
-    shortAnswerInTalk=self.get_gist(q, answers_talk)
     
-
+    startTime = time.time()
+    shortAnswerInTalk=self.get_gist(q, answers_talk)
+    endtime = time.time()
+    self.qaDuration['talker']['bert'] += endtime - startTime
+    
     #print('\n^^^^^^^^^, think, distil, Ripple^^^^^^^^^^^^')
-
+    
+    startTime = time.time()
     shortAnswerInRipple=self.get_gist(q, answers_ripple)
-
-
-
+    endtime = time.time()
+    self.qaDuration['ripple']['bert'] += endtime - startTime
+    
     if not answerer:
       return
 
+    startTime = time.time()
     best=list(self.reason_about([],answerer))
     inf_answers = [(x[0], self.get_sentence(x[0]), x[1]) for x in best]
 
     # apply BERT pipeline to inferred answers
     #print('\n^^^^^^^^^, think, distil, Thinker^^^^^^^^^^^^')
+    
+    endtime = time.time()
+    self.qaDuration['thinker']['self'] += endtime - startTime
 
+    startTime = time.time()
     shortAnswerInThink = self.get_gist(q,inf_answers)
+    endtime = time.time()
     
+    self.qaDuration['thinker']['bert'] += endtime - startTime
     
-
     #print('\n^^^^^^^^^, think, distil, Bert^^^^^^^^^^^^')
+    
+    startTime = time.time()
     shortAnswerInBert = self.get_gist(q,[], True)
+    endtime = time.time()
+    self.qaDuration['bert']['bert'] += endtime - startTime
+    
   
     return shortAnswerInTalk, shortAnswerInRipple, shortAnswerInThink, shortAnswerInBert
+
 
 
   def extract_rels(self,G,good_lemmas):
@@ -302,26 +317,19 @@ def reason_with_File(fname, params, query=True) :
   
 
   
-  EndQATime = time.time()
-  print("\n\nEndQATime(Seconds) =", EndQATime)	
-  local_time = time.ctime(EndQATime)
-  print("EndQATimeLocal time:", local_time)
   
   print('Total sentences:', t.totalSents)
   print('Total words:', t.totalWords)
   
-  totalDuration = EndQATime - t.startTime
   nlpParseDuration = t.endParseTime - t.startTime
   sumkeysDuration = t.doneSumkeysTime - t.endParseTime
-  doctalkQaDuration = EndQATime - t.doneSumkeysTime
   
-  print("Total duration(seconds): ", totalDuration)
   print("Stanza nlp parse duration(seconds): ", nlpParseDuration)
   print("doctalk summKeys duration(seconds): ", sumkeysDuration)
-  print("doctalk Q&A duration(seconds): ", doctalkQaDuration)
+  print("QA duration:\n", t.qaDuration)
   
   
-  return talkAnswer, rippleAnswer, thinkAnswer, bertAnswer, t.totalSents, t.totalWords, totalDuration, nlpParseDuration, sumkeysDuration, doctalkQaDuration 
+  return talkAnswer, rippleAnswer, thinkAnswer, bertAnswer, t.totalSents, t.totalWords, nlpParseDuration, sumkeysDuration, t.qaDuration
 
 
 def reason_with_Text( text, qlist, params, query=True) :

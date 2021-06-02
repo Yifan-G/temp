@@ -1,0 +1,13 @@
+average Sentences: 30.59
+average words: 709.45
+Total questions: 49443
+average total duration per question (seconds): 0.17419
+average nlpParse duration per question (seconds): 0.056
+average Doctak summarization duration per question (seconds): 0.002
+average Doctalk question and answer duration per question (seconds): 0.11618
+
+talker_F1 = 36.933783071983065, talker_exact_match = 26.802580749549985
+ripple_F1 = 34.99899621829412, ripple_exact_match = 25.564791780434035
+thinker_F1 = 36.88335415216107, thinker_exact_match = 27.11809558481484
+bert_F1 = 36.12076205397116, bert_exact_match = 26.43650263940295
+

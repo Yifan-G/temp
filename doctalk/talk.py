@@ -797,9 +797,15 @@ def interact_allAlgorithms(q,talker):
   #talker.say(q)
   #print('')
   ### answer is computed here ###
+  startTime = time.time()
   answers_talk,answerer=answer_quest( q, talker)
+  endTime = time.time()
+  talker.qaDuration['talker']['self'] += endTime - startTime
+
+  startTime = time.time()
   answers_ripple,answerer=answer_quest_ripple(q, talker)
-  #show_answers(talker,answers)
+  endTime = time.time()
+  talker.qaDuration['ripple']['self'] += endTime - startTime
   return talker.distill_talker_ripple(q, answers_talk, answers_ripple, answerer)
 
 
@@ -839,8 +845,13 @@ class Talker :
     self.params=params
     self.from_file=from_file
     self.content = from_text
-     
-    
+    self.qaDuration = {
+      'talker': {'self':0, 'bert':0},
+      'ripple': {'self':0, 'bert':0},	
+      'thinker': {'self':0, 'bert':0},	
+      'bert': {'bert':0}
+      }  
+
     self.startTime = time.time()
     '''
     print("\n\nstarttime (Seconds) =", self.startTime)	
@@ -1558,7 +1569,7 @@ class Talker :
         for j in range(len(sent)):
           ws += before[j] + sent[j]
         txt += ' ' + ws
-
+    return txt #toDO for textbank
     if txt == "":
       return ""
     #print('*********get_gist, txt to ask_bert:', txt)

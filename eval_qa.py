@@ -168,90 +168,6 @@ def answerSQuADFromFile(version):
       #if i == 5: break
     #if count ==0: break
 
-##########################################################################
-#Can be used for paragraph or whole article
-# evaluateSQuAD('paragraph') or evaluateSQuAD('article')
-##########################################################################
-def evaluateSQuAD(type):
-  datadir = "dataset/squad/one/"
-  dataset= jload( datadir + "dev-v1.1.json")
-  outputDir = datadir + type + '/output/'
-  predictions = jload( outputDir + 'predictions_talker.json')
-  score = evaluate(dataset['data'], predictions)
-  em_talker = round(score['exact_match'], 2)
-  f1_talker = round(score['f1'], 2)
-  content = 'talker_F1 = ' +  str(f1_talker) + ', talker_exact_match = ' + str(em_talker) + '\n'
-
-  predictions = jload( outputDir + 'predictions_ripple.json')
-  score = evaluate(dataset['data'], predictions)
-  em_ripple = round(score['exact_match'], 2)
-  f1_ripple = round(score['f1'], 2)
-  content += 'ripple_F1 = ' +  str(f1_ripple) + ', ripple_exact_match = ' + str(em_ripple) + '\n'
-
-  predictions = jload( outputDir + 'predictions_thinker.json')
-  score = evaluate(dataset['data'], predictions)
-  em_thinker = round(score['exact_match'], 2)
-  f1_thinker = round(score['f1'], 2)
-  content += 'thinker_F1 = ' +  str(f1_thinker) + ', thinker_exact_match = ' + str(em_thinker) + '\n'
-
-  predictions = jload( outputDir + 'predictions_bert.json')
-  score = evaluate(dataset['data'], predictions)
-  em_bert = round(score['exact_match'], 2)
-  f1_bert = round(score['f1'], 2)
-  content += 'bert_F1 = ' +  str(f1_bert) + ', bert_exact_match = ' + str(em_bert) + '\n'
-
-  totalSentsList = jload( outputDir + 'Total_Sents.json')
-  avgSents = round(sum(totalSentsList)/len(totalSentsList), 2)
-  totalWordsList = jload( outputDir + 'Total_Words.json')
-  avgWords = round(sum(totalWordsList)/len(totalWordsList), 2)
-  nlpParseDurList = jload( outputDir + 'nlpParse_duration.json')
-  avgNlpParsrDur = round(sum(nlpParseDurList)/len(predictions), 5)
-  doctalkSummDurList = jload( outputDir + 'DoctalkSumm_duration.json')
-  avgDoctalkSummDur = round(sum(doctalkSummDurList)/len(predictions), 5) 
-
-  talker_QA_self_list = jload( outputDir + 'QA_talk_self_duration.json')
-  avgTlkQaSelf = round(sum(talker_QA_self_list)/len(predictions), 5)
-  talker_QA_bert_list = jload( outputDir + 'QA_talk_bert_duration.json')
-  avgTlkQaBert = round(sum(talker_QA_bert_list)/len(predictions), 5) 
-
-  ripple_QA_self_list = jload( outputDir + 'QA_ripple_self_duration.json')
-  avgRiQaSelf = round(sum(ripple_QA_self_list)/len(predictions), 5)
-  ripple_QA_bert_list = jload( outputDir + 'QA_ripple_bert_duration.json')
-  avgRiQaBert = round(sum(ripple_QA_bert_list)/len(predictions), 5) 
-
-  thinker_QA_self_list = jload( outputDir + 'QA_thinker_self_duration.json')
-  avgThQaSelf = round(sum(thinker_QA_self_list)/len(predictions), 5)
-  thinker_QA_bert_list = jload( outputDir + 'QA_thinker_bert_duration.json')
-  avgThQaBert = round(sum(thinker_QA_bert_list)/len(predictions), 5)
-
-  bert_QA_bert_list = jload( outputDir + 'QA_bert_bert_duration.json')
-  avgBertQaBert = round(sum(bert_QA_bert_list)/len(predictions), 5)
-      
-
-  stats = 'average Sentences: ' + str(avgSents) + '\n'
-  stats += 'average words: ' + str(avgWords) + '\n'
-  stats += 'Total questions: ' + str(len(predictions)) + '\n'
-  stats += 'average nlpParse duration per question (seconds): ' + str(avgNlpParsrDur) + '\n'
-  stats += 'average Doctak summarization duration per question (seconds): ' + str(avgDoctalkSummDur) + '\n' 
-  stats += 'average talker self duration per question (seconds): ' + str(avgTlkQaSelf) + '\n' 
-  stats += 'average talker bert duration per question (seconds): ' + str(avgTlkQaBert) + '\n' 
-  stats += 'average ripple self duration per question (seconds): ' + str(avgRiQaSelf) + '\n' 
-  stats += 'average ripple bert duration per question (seconds): ' + str(avgRiQaBert) + '\n' 
-  stats += 'average thinker self duration per question (seconds): ' + str(avgThQaSelf) + '\n' 
-  stats += 'average thinker bert duration per question (seconds): ' + str(avgThQaBert) + '\n' 
-  stats += 'average Bert bert duration per question (seconds): ' + str(avgBertQaBert) + '\n' 
-
-  print(stats )
-  print("score:\n", content)
-
-  toFile = outputDir + "SQuAD_1.1_score.txt"
-  print('save score to file:', toFile)
-  with wopen(toFile) as fscore:
-    fscore.write(stats + "\n")
-    fscore.write(content + "\n")
-
-   
-
 
 def answerSQuADFromText(version):
   datadir = "dataset/squad/" + version + "/"
@@ -669,6 +585,8 @@ def answerNarrativeqa():
   #i = 0
   for document_id in dataIds:
     fname = baseDir + "dev/" + document_id
+    if os.path.exists(fname + '.txt') == False:
+      continue
     Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
     '''
     print('answerNewsQA, Talker:', Talker)

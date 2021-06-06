@@ -1569,7 +1569,6 @@ class Talker :
         for j in range(len(sent)):
           ws += before[j] + sent[j]
         txt += ' ' + ws
-    return txt #toDO for textbank
     if txt == "":
       return ""
     #print('*********get_gist, txt to ask_bert:', txt)

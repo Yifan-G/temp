@@ -12,3 +12,4 @@ waitress
 streamlit
 langid
 py-rouge>=1.1
+

@@ -109,9 +109,9 @@ def main():
   totalWordsList = jload('output/Total_Words.json')
   avgWords = round(sum(totalWordsList)/len(totalWordsList), 2)
   nlpParseDurList = jload( 'output/nlpParse_duration.json')
-  avgNlpParsrDur = round(sum(nlpParseDurList)/totalQ, 5)
+  avgNlpParsrDur = round(sum(nlpParseDurList)/len(totalWordsList), 5)
   doctalkSummDurList = jload( 'output/DoctalkSumm_duration.json')
-  avgDoctalkSummDur = round(sum(doctalkSummDurList)/totalQ, 5)  
+  avgDoctalkSummDur = round(sum(doctalkSummDurList)/len(totalWordsList), 5)  
   talker_QA_self_list = jload( 'output/QA_talk_self_duration.json')
   avgTlkQaSelf = round(sum(talker_QA_self_list)/totalQ, 5)
   talker_QA_bert_list = jload( 'output/QA_talk_bert_duration.json')
@@ -132,9 +132,11 @@ def main():
 
   stats = 'average Sentences: ' + str(avgSents) + '\n'
   stats += 'average words: ' + str(avgWords) + '\n'
+  stats += 'Total articles: ' + str(len(totalWordsList)) + '\n'
+  stats += 'average nlpParse duration per article (seconds): ' + str(avgNlpParsrDur) + '\n'
+  stats += 'average Doctak summarization duration per article (seconds): ' + str(avgDoctalkSummDur) + '\n' 
+
   stats += 'Total questions: ' + str(totalQ) + '\n'
-  stats += 'average nlpParse duration per question (seconds): ' + str(avgNlpParsrDur) + '\n'
-  stats += 'average Doctak summarization duration per question (seconds): ' + str(avgDoctalkSummDur) + '\n' 
   stats += 'average talker self duration per question (seconds): ' + str(avgTlkQaSelf) + '\n' 
   stats += 'average talker bert duration per question (seconds): ' + str(avgTlkQaBert) + '\n' 
   stats += 'average ripple self duration per question (seconds): ' + str(avgRiQaSelf) + '\n' 

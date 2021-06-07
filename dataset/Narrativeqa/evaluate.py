@@ -99,7 +99,7 @@ def get_scores(alg):
       question = row['question']
       gold_answer1 =  normalize_answer(row['answer1'])
       gold_answer2 =  normalize_answer(row['answer2'])
-      if os.path.exists(outputDir + alg + '/' + document_id + ".txt") == False:
+      if os.path.exists(outputDir  + alg + '/' + document_id + ".txt") == False:
         continue
       preds = jload(outputDir + alg + '/' + document_id + ".txt")    
       pred_answer = normalize_answer(preds[question])
@@ -144,7 +144,7 @@ def get_scores(alg):
 
 
       i += 1
-      #if i == 10: break
+      #if i == 2: break
 
   score =dict()
   total = len(exact_scores)
@@ -172,7 +172,7 @@ def get_scores(alg):
     content += ref_answers_1[quest].replace(',', ' ').replace('\n', '') + ','   
     content += ref_answers_2[quest].replace(',', ' ').replace('\n', '')  + ','   
     content += pred_answers[quest].replace(',', ' ').replace('\n', '') + '\n'   
-  with open(outputDir + alg + '/' + alg + '_score_detail.csv','w',encoding='utf8') as fscore:
+  with open(outputDir + alg + '/score_detail.csv','w',encoding='utf8') as fscore:
     fscore.write(content + "\n")
 
   return score
@@ -183,9 +183,9 @@ def get_scores(alg):
 
 def main():
   content = ''
-  for alg in  ['talker', 'ripple', 'thinker', 'bert' ]:
+  for alg in ['doctalk', 'bert']:
     eval = get_scores(alg)
-    content += alg + ': \n'
+    content += alg + ':\n'
     content += ' F1 = ' + str(eval['f1']) + ', exact_match = ' + str(eval['exact']) + '\n'
     content += ' rouge_l=' + str(eval['rouge_l']) + '\n'  
     content += ' bleu_1=' + str(eval['bleu_1']) + '\n'  
@@ -193,10 +193,7 @@ def main():
     content += ' meteor=' + str(eval['meteor']) + '\n'   
 
   outputDir ="output/"
-
   totalQ = eval['total']
-
-
   totalSentsList = jload( outputDir + 'Total_Sents.json')
   avgSents = round(sum(totalSentsList)/len(totalSentsList), 2)
   totalWordsList = jload(outputDir + 'Total_Words.json')
@@ -205,23 +202,13 @@ def main():
   avgNlpParsrDur = round(sum(nlpParseDurList)/len(totalWordsList), 5)
   doctalkSummDurList = jload( outputDir + 'DoctalkSumm_duration.json')
   avgDoctalkSummDur = round(sum(doctalkSummDurList)/len(totalWordsList), 5)  
-  talker_QA_self_list = jload( outputDir + 'QA_talk_self_duration.json')
-  avgTlkQaSelf = round(sum(talker_QA_self_list)/totalQ, 5)
-  talker_QA_bert_list = jload( outputDir + 'QA_talk_bert_duration.json')
-  avgTlkQaBert = round(sum(talker_QA_bert_list)/totalQ, 5) 
+  qaDur_doctalk_self_list = jload( outputDir + 'QA_doctalk_self_duration.json')
+  avgDoctalkQaSelf = round(sum(qaDur_doctalk_self_list)/totalQ, 5)
+  qaDur_doctalk_bert_list = jload( outputDir + 'QA_doctalk_bert_duration.json')
+  avgDoctalkQaBert = round(sum(qaDur_doctalk_bert_list)/totalQ, 5) 
+  qaDur_BERT_bert_list = jload( outputDir + 'QA_BERT_bert_duration.json')
+  avgBertQaBert = round(sum(qaDur_BERT_bert_list)/totalQ, 5) 
 
-  ripple_QA_self_list = jload( outputDir + 'QA_ripple_self_duration.json')
-  avgRiQaSelf = round(sum(ripple_QA_self_list)/totalQ, 5)
-  ripple_QA_bert_list = jload( outputDir + 'QA_ripple_bert_duration.json')
-  avgRiQaBert = round(sum(ripple_QA_bert_list)/totalQ, 5) 
-
-  thinker_QA_self_list = jload( outputDir + 'QA_thinker_self_duration.json')
-  avgThQaSelf = round(sum(thinker_QA_self_list)/totalQ, 5)
-  thinker_QA_bert_list = jload( outputDir + 'QA_thinker_bert_duration.json')
-  avgThQaBert = round(sum(thinker_QA_bert_list)/totalQ, 5)
-
-  bert_QA_bert_list = jload( outputDir + 'QA_bert_bert_duration.json')
-  avgBertQaBert = round(sum(bert_QA_bert_list)/totalQ, 5)
 
   stats = 'average Sentences: ' + str(avgSents) + '\n'
   stats += 'average words: ' + str(avgWords) + '\n'
@@ -229,13 +216,9 @@ def main():
   stats += 'Total questions: ' + str(totalQ) + '\n'
   stats += 'average nlpParse duration per article (seconds): ' + str(avgNlpParsrDur) + '\n'
   stats += 'average Doctak summarization duration per article (seconds): ' + str(avgDoctalkSummDur) + '\n' 
-  stats += 'average talker self duration per question (seconds): ' + str(avgTlkQaSelf) + '\n' 
-  stats += 'average talker bert duration per question (seconds): ' + str(avgTlkQaBert) + '\n' 
-  stats += 'average ripple self duration per question (seconds): ' + str(avgRiQaSelf) + '\n' 
-  stats += 'average ripple bert duration per question (seconds): ' + str(avgRiQaBert) + '\n' 
-  stats += 'average thinker self duration per question (seconds): ' + str(avgThQaSelf) + '\n' 
-  stats += 'average thinker bert duration per question (seconds): ' + str(avgThQaBert) + '\n' 
-  stats += 'average Bert bert duration per question (seconds): ' + str(avgBertQaBert) + '\n' 
+  stats += 'average doctalk self duration per question (seconds): ' + str(avgDoctalkQaSelf) + '\n' 
+  stats += 'average doctalk bert duration per question (seconds): ' + str(avgDoctalkQaBert) + '\n' 
+  stats += 'average BERT bert duration per question (seconds): ' + str(avgBertQaBert) + '\n' 
 
 
   print(stats )

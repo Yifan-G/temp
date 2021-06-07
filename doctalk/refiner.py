@@ -3,8 +3,6 @@ extractor = None
 BERT_ABS=1
 BERT_EX=2
 ALL=3
-bertpipeline=None
-
 
 def refine(doctalk_summary,how) :
   global extractor

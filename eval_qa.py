@@ -1,32 +1,28 @@
 import sys
 import os
 import json
+import time
 import argparse
 from doctalk.talk import Talker, nice_keys, exists_file, jload, jsave
 from doctalk.params import talk_params, ropen, wopen
-from doctalk.think import reason_with_File, reason_with_Text
-from dataset.squad.one.evaluate import evaluate
+from doctalk.think import reason_with
+from doctalk.refiner import ask_bert
 
-qidAnswer_Talker = dict()
-qidAnswer_Ripple = dict()
-qidAnswer_Thinker = dict()
-qidAnswer_Bert = dict()
+qaAnswers_doctalk = dict()
+qaAnswers_bert =  dict()
 totalSentsList = []
 totalWordsList = []
 nlpParseDurList = []
 doctalkSummDurList = []  
-talker_QA_self_list = []
-talker_QA_bert_list = []
-ripple_QA_self_list = []
-ripple_QA_bert_list= []
-thinker_QA_self_list = []
-thinker_QA_bert_list = []
-bert_QA_bert_list = []
+qaDur_doctalk_self_list = []
+qaDur_doctalk_bert_list = []
+qaDur_BERT_bert_list = []
 
 
+#createSQuADQuestionIDMap('1.1') or createSQuADQuestionIDMap('2.0')
 def createSQuADQuestionIDMap(version):
-  datadir = "dataset/squad/"  + version + "/"
-  if version == "one":
+  datadir = "dataset/SQuAD/"  + version + "/"
+  if version == "1.1":
     dataset= jload( datadir + "dev-v1.1.json")
   else : #version ="2.0"
     dataset= jload( datadir + "dev-v2.0.json")
@@ -46,14 +42,14 @@ def createSQuADQuestionIDMap(version):
     f.write(output + "\n")
   f.close()
 
-           
+#saveSQuAD_QuestionContent('1.1') or   saveSQuAD_QuestionContent('2.0')
 def saveSQuAD_QuestionContent(version):
-  datadir = "dataset/squad/" + version + "/"
+  datadir = "dataset/SQuAD/" + version + "/"
   outputDir = datadir + "/paragraph/"
   os.makedirs(outputDir,exist_ok=True)
   os.makedirs(outputDir + 'dev',exist_ok=True)
   os.makedirs(outputDir + 'output',exist_ok=True)  
-  if version == "one":
+  if version == "1.1":
     dataset= jload( datadir + "dev-v1.1.json")
   else : #version ="2.0"
     dataset= jload( datadir + "dev-v2.0.json")
@@ -75,10 +71,10 @@ def saveSQuAD_QuestionContent(version):
            fquest.close()
 
  
-
+#answerSQuADFromFile('1.1') or  answerSQuADFromFile('2.0')
 def answerSQuADFromFile(version):
-  datadir = "dataset/squad/" + version + "/"
-  if version == "one":
+  datadir = "dataset/SQuAD/" + version + "/"
+  if version == "1.1":
     dataset= jload( datadir + "dev-v1.1.json")
   else : #version ="2.0"
     dataset= jload( datadir + "dev-v2.0.json")
@@ -91,160 +87,73 @@ def answerSQuADFromFile(version):
     for i, paragraph in enumerate(article['paragraphs']):
       #if i<3: continue
       fname = datadir +"paragraph/dev/" + article['title']  + "_" + str(i)
-      Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
+      doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname)
+      bertAnswers, bertDur = reason_with_bert(fname)
       '''
-      print('\n\nanswerSQuAD, Talker:', Talker)
-      print('answerSQuAD, Ripple:', Ripple)
-      print('answerSQuAD, Thinker:', Thinker)
-      print('answerSQuAD, Bert:', Bert)
+      print('\n\ndoctalkAnswers:', doctalkAnswers)
+      print('bertAnswers:', bertAnswers)
       print('Total sentences:', totalSents)
       print('Total words:', totalWords)
       print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
       print("doctalk summKeys duration(seconds): ", round(doctalkSummDur, 5))
       print("doctalk Q&A duration(seconds): ", doctalkQaDur)
+      print("bert duration(seconds): ", bertDur)
       '''
       totalSentsList.append(totalSents)
       totalWordsList.append(totalWords)
       nlpParseDurList.append(nlpParseDur)
       doctalkSummDurList.append(doctalkSummDur)
-      talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-      talker_QA_bert_list.append(doctalkQaDur['talker']['bert'])
-      ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-      ripple_QA_bert_list.append(doctalkQaDur['ripple']['bert'])
-      thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
-      thinker_QA_bert_list.append(doctalkQaDur['thinker']['bert'])
-      bert_QA_bert_list.append(doctalkQaDur['bert']['bert'])
+      qaDur_doctalk_self_list.append(doctalkQaDur['self'])
+      qaDur_doctalk_bert_list.append(doctalkQaDur['bert'])
+      qaDur_BERT_bert_list.append(bertDur)
 
       qids = []
       for qa in paragraph['qas']:
         qid = qa['id']
         qids.append(qid)
       for j, qid in enumerate(qids):
-        qidAnswer_Talker[qid] = Talker[j]
-        qidAnswer_Ripple[qid] = Ripple[j]
-        qidAnswer_Thinker[qid] = Thinker[j]
-        qidAnswer_Bert[qid] = Bert[j]
+        qaAnswers_doctalk[qid] = doctalkAnswers[j]
+        qaAnswers_bert[qid] = bertAnswers[j]
         #if j == 1: break
       '''
-      print('qidAnswer_Talker:', qidAnswer_Talker)
-      print('qidAnswer_Ripple:', qidAnswer_Ripple)
-      print('qidAnswer_Thinker:', qidAnswer_Thinker)
-      print('qidAnswer_Bert:', qidAnswer_Bert)
+      print('qaAnswers_doctalk:', qaAnswers_doctalk)
+      print('qaAnswers_bert:', qaAnswers_bert)      
       print('totalSentsList:', totalSentsList)
       print('totalWordsList:', totalWordsList)
       print("nlpParseDurList: ", nlpParseDurList)
       print("doctalkSummDurList: ", doctalkSummDurList)
-      print('talker_QA_self_list:', talker_QA_self_list)
-      print('talker_QA_bert_list:', talker_QA_bert_list)
-      print('ripple_QA_self_list:', ripple_QA_self_list)
-      print('ripple_QA_bert_list:', ripple_QA_bert_list)
-      print('thinker_QA_self_list:', thinker_QA_self_list)
-      print('thinker_QA_bert_list:', thinker_QA_bert_list)
-      print('bert_QA_bert_list:', bert_QA_bert_list)
+      print('qaDur_doctalk_self_list:', qaDur_doctalk_self_list)
+      print('qaDur_doctalk_bert_list:', qaDur_doctalk_bert_list)
+      print('qaDur_BERT_bert_list:', qaDur_BERT_bert_list)
       '''
 
-      outputTalker = json.dumps(qidAnswer_Talker)
-      with wopen(outputDir + 'predictions_talker.json' ) as ftalk:
-        ftalk.write(outputTalker + "\n")
-
-      outputRipple = json.dumps(qidAnswer_Ripple)
-      with wopen(outputDir + 'predictions_ripple.json' ) as fRipple:
-        fRipple.write(outputRipple + "\n")
-      
-      outputThinker = json.dumps(qidAnswer_Thinker)
-      with wopen(outputDir + 'predictions_thinker.json' ) as fthink:
-        fthink.write(outputThinker + "\n")
-
-      outputBert = json.dumps(qidAnswer_Bert)
-      with wopen(outputDir + 'predictions_bert.json' ) as fbert:
-        fbert.write(outputBert + "\n")
-
+      outputAnswers = json.dumps(qaAnswers_doctalk)
+      with wopen(outputDir + 'predictions_doctalk.json' ) as fpred:
+        fpred.write(outputAnswers + "\n")
+      outputAnswers = json.dumps(qaAnswers_bert)
+      with wopen(outputDir + 'predictions_bert.json' ) as fpred:
+        fpred.write(outputAnswers + "\n")
       saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
-      #if i == 5: break
+        qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list)
+      #if i == 1: break
     #if count ==0: break
 
 
-def answerSQuADFromText(version):
-  datadir = "dataset/squad/" + version + "/"
-  if version == "one":
-    dataset= jload( datadir + "dev-v1.1.json")
-  else : #version ="2.0"
-    dataset= jload( datadir + "dev-v2.0.json")
-  #data is []
-  qidAnswer_Talker =dict() 
-  qidAnswer_Ripple =dict() 
-  qidAnswer_Thinker =dict() 
-  qidAnswer_Bert =dict() 
-  for count, article in enumerate(dataset['data']):
-    for i, paragraph in enumerate(article['paragraphs']):
-      context = paragraph['context']
-      print('\n\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
-      print(article['title'], ' paragraph[', i, ']')
-      print('context:\n',context )
-      print('\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n')
-
-      qlist = []
-      questions = paragraph['qas']
-      for question in questions:
-        q=question['question']
-        qlist.append(q)
-      Talker, Ripple, Thinker, Bert = reason_with_doctalk_FromText(context, qlist)
-      print('answerSQuAD, Talker:', Talker )
-      print('answerSQuAD, Ripple:', Ripple )
-      print('answerSQuAD, Thinker:', Thinker )
-      print('answerSQuAD, Bert:', Bert )
-      qids = []
-      for qa in paragraph['qas']:
-        qid = qa['id']
-        qids.append(qid)
-      print('qids length:', len(qids), ', detail:', qids)
-      for j, qid in enumerate(qids):
-        qidAnswer_Talker[qid] = Talker[j]
-        qidAnswer_Ripple[qid] = Ripple[j]
-        qidAnswer_Thinker[qid] = Thinker[j]
-        qidAnswer_Bert[qid] = Bert[j]
-      if i == 0: break
-    if count==0: break
-  #print('\n qidAnswer_Talker:', qidAnswer_Talker)
-  #print('\n qidAnswer_Ripple:', qidAnswer_Ripple)
-  #print('\n qidAnswer_Thinker:', qidAnswer_Thinker)
-  #print('\n qidAnswer_Bert:', qidAnswer_Bert)  
-  
-  outputTalker = json.dumps(qidAnswer_Talker)
-  with wopen(datadir + 'predictions_talker.json' ) as ftalk:
-    ftalk.write(outputTalk + "\n")
-
-  outputRipple = json.dumps(qidAnswer_Ripple)
-  with wopen(datadir + 'predictions_ripple.json' ) as fRipple:
-    fRipple.write(outputRipple + "\n")
-  
-  outputThinker = json.dumps(qidAnswer_Thinker)
-  with wopen(datadir + 'predictions_thinker.json' ) as fthink:
-    fthink.write(outputThink + "\n")
-
-  outputBert = json.dumps(qidAnswer_Bert)
-  with wopen(datadir + 'predictions_bert.json' ) as fbert:
-    fbert.write(outputBert + "\n")
-
 #################################################################################
-# above work for squad paragraph, it is same test in squad1.1 dev
+# above work for SQuAD paragraph, it is same test in SQuAD1.1 dev
 # https://rajpurkar.github.io/SQuAD-explorer/explore/1.1/dev/
 # evaluateSQuAD(type) can be used for wholeArticle
 # below is for whole Article
 #####################################################################################
-
+#saveSQuAD_QuestionContent_wholeArticle('1.1') or saveSQuAD_QuestionContent_wholeArticle('2.0')
 def saveSQuAD_QuestionContent_wholeArticle(version):
-  datadir = "dataset/squad/" + version + "/"
+  datadir = "dataset/SQuAD/" + version + "/"
   outputdir = datadir + "/article/"
   os.makedirs(outputdir,exist_ok=True)
   os.makedirs(outputdir + 'dev',exist_ok=True)
   os.makedirs(outputdir + 'output',exist_ok=True)
-  if version == "one":
+  if version == "1.1":
     dataset= jload( datadir + "dev-v1.1.json")
   else : #version ="2.0"
     dataset= jload( datadir + "dev-v2.0.json")
@@ -268,61 +177,38 @@ def saveSQuAD_QuestionContent_wholeArticle(version):
               f.write(questions + "\n")
 
 
-
+# for 1.1
 def answerSQuADFromFile_wholeArticle():
-  datadir = "dataset/squad/one/"
+  datadir = "dataset/SQuAD/1.1/"
   outputDir = datadir + "article/output/"
   os.makedirs(outputDir,exist_ok=True)
   dataset= jload( datadir + "dev-v1.1.json")
 
   loadResult(outputDir)
-  '''
-  print('\n\nbefore start')
-  print('qidAnswer_Talker:', qidAnswer_Talker)
-  print('qidAnswer_Ripple:', qidAnswer_Ripple)
-  print('qidAnswer_Thinker:', qidAnswer_Thinker)
-  print('qidAnswer_Bert:', qidAnswer_Bert)
-  print('totalSentsList:', totalSentsList)
-  print('totalWordsList:', totalWordsList)
-  print("nlpParseDurList: ", nlpParseDurList)
-  print("doctalkSummDurList: ", doctalkSummDurList)
-  print("talker_QA_self_list: ", talker_QA_self_list)
-  print("talker_QA_bert_list: ", talker_QA_bert_list)
-  print("ripple_QA_self_list: ", ripple_QA_self_list)
-  print("ripple_QA_bert_list: ", ripple_QA_bert_list)
-  print("thinker_QA_self_list: ", thinker_QA_self_list)
-  print("thinker_QA_bert_list: ", thinker_QA_bert_list)
-  print("bert_QA_bert_list: ", bert_QA_bert_list)
-  '''
   #data is []
   for count, article in enumerate(dataset['data']):
     #if count < 2: continue
     qids = []
     fname = datadir + "article/" +"dev/" + article['title'] 
-    Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
-    '''  
-    print('answerSQuAD, Talker:', Talker)
-    print('answerSQuAD, Ripple:', Ripple)
-    print('answerSQuAD, Thinker:', Thinker)
-    print('answerSQuAD, Bert:', Bert)
+    doctalkAnswers,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname)
+    bertAnswers, bertDur = reason_with_bert(fname)
+    ''' 
+    print('doctalkAnswers:', doctalkAnswers)
+    print('bertAnswers:', bertAnswers)
     print('Total sentences:', totalSents)
     print('Total words:', totalWords)
     print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
     print("doctalk Summarization duration(seconds): ", round(doctalkSummDur, 5))
     print("doctalk Q&A duration(seconds): ", doctalkQaDur)
+    print("bert duration(seconds): ", bertDur)
     '''  
     totalSentsList.append(totalSents)
     totalWordsList.append(totalWords)
     nlpParseDurList.append(nlpParseDur)
     doctalkSummDurList.append(doctalkSummDur)
-    talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-    talker_QA_bert_list.append(doctalkQaDur['talker']['bert'])
-    ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-    ripple_QA_bert_list.append(doctalkQaDur['ripple']['bert'])
-    thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
-    thinker_QA_bert_list.append(doctalkQaDur['thinker']['bert'])
-    bert_QA_bert_list.append(doctalkQaDur['bert']['bert'])
-
+    qaDur_doctalk_self_list.append(doctalkQaDur['self'])
+    qaDur_doctalk_bert_list.append(doctalkQaDur['bert'])
+    qaDur_BERT_bert_list.append(bertDur)
 
     for i, paragraph in enumerate(article['paragraphs']):      
       for qa in paragraph['qas']:
@@ -330,53 +216,33 @@ def answerSQuADFromFile_wholeArticle():
         qids.append(qid)
       
     for j, qid in enumerate(qids):
-      qidAnswer_Talker[qid] = Talker[j]
-      qidAnswer_Ripple[qid] = Ripple[j]
-      qidAnswer_Thinker[qid] = Thinker[j]
-      qidAnswer_Bert[qid] = Bert[j]
+      qaAnswers_doctalk[qid] = doctalkAnswers[j]
+      qaAnswers_bert[qid] = bertAnswers[j]
       #if j ==1: break
     '''
     print('\n\nDone, save to files')
-    print('qidAnswer_Talker:', qidAnswer_Talker)
-    print('qidAnswer_Ripple:', qidAnswer_Ripple)
-    print('qidAnswer_Thinker:', qidAnswer_Thinker)
-    print('qidAnswer_Bert:', qidAnswer_Bert)
+    print('qaAnswers_doctalk:', qaAnswers_doctalk)
+    print('qaAnswers_bert:', qaAnswers_bert)   
     print('totalSentsList:', totalSentsList)
     print('totalWordsList:', totalWordsList)
     print("nlpParseDurList: ", nlpParseDurList)
     print("doctalkSummDurList: ", doctalkSummDurList)
-    print('talker_QA_self_list:', talker_QA_self_list)
-    print('talker_QA_bert_list:', talker_QA_bert_list)
-    print('ripple_QA_self_list:', ripple_QA_self_list)
-    print('ripple_QA_bert_list:', ripple_QA_bert_list)
-    print('thinker_QA_self_list:', thinker_QA_self_list)
-    print('thinker_QA_bert_list:', thinker_QA_bert_list)
-    print('bert_QA_bert_list:', bert_QA_bert_list)
+    print('qaDur_doctalk_self_list:', qaDur_doctalk_self_list)
+    print('qaDur_doctalk_bert_list:', qaDur_doctalk_bert_list)
+    print('qaDur_BERT_bert_list:', qaDur_BERT_bert_list)
     '''
     
-    outputTalker = json.dumps(qidAnswer_Talker)
-    with wopen(outputDir + 'predictions_talker.json' ) as ftalk:
-      ftalk.write(outputTalker + "\n")
-
-    outputRipple = json.dumps(qidAnswer_Ripple)
-    with wopen(outputDir + 'predictions_ripple.json' ) as fRipple:
-      fRipple.write(outputRipple + "\n")
-    
-    outputThinker = json.dumps(qidAnswer_Thinker)
-    with wopen(outputDir + 'predictions_thinker.json' ) as fthink:
-      fthink.write(outputThinker + "\n")
-
-    outputBert = json.dumps(qidAnswer_Bert)
-    with wopen(outputDir + 'predictions_bert.json' ) as fbert:
-      fbert.write(outputBert + "\n")
+    outputAnswers = json.dumps(qaAnswers_doctalk)
+    with wopen(outputDir + 'predictions_doctalk.json' ) as fpred:
+      fpred.write(outputAnswers + "\n")
+    outputAnswers = json.dumps(qaAnswers_bert)
+    with wopen(outputDir + 'predictions_bert.json' ) as fpred:
+      fpred.write(outputAnswers + "\n")
 
     saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
-    #if count == 3: break
+        qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list)
+    #if count == 1: break
     
 
 ##########################################################################################
@@ -442,9 +308,7 @@ def answerNewsQA():
   datadir = "dataset/NewsQA/"
   outputDir = 'dataset/NewsQA/output/'
   os.makedirs(outputDir, exist_ok=True)
-  os.makedirs(outputDir + 'talker',exist_ok=True)
-  os.makedirs(outputDir + 'ripple',exist_ok=True)
-  os.makedirs(outputDir + 'thinker',exist_ok=True)
+  os.makedirs(outputDir + 'doctalk',exist_ok=True)
   os.makedirs(outputDir + 'bert',exist_ok=True)
   dataset= jload( datadir + 'combined-newsqa-data-v1.json')
 
@@ -456,73 +320,49 @@ def answerNewsQA():
     storyId  =  storyId [len("./cnn/stories/"):]
     keeplen= len(storyId) - len(".story")
     storyId = storyId[:keeplen]
-    fname = datadir + "dev/" + storyId
-
-  
-    Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
-    '''  
-    print('answerNewsQA, Talker:', Talker)
-    print('answerNewsQA, Ripple:', Ripple)
-    print('answerNewsQA, Thinker:', Thinker)
-    print('answerNewsQA, Bert:', Bert)
+    fname = datadir + "dev/" + storyId  
+    doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname)
+    bertAnswers, bertDur = reason_with_bert(fname)
+    '''
+    print('doctalkAnswers:', doctalkAnswers)
+    print('bertAnswers:', bertAnswers)
     print('Total sentences:', totalSents)
     print('Total words:', totalWords)
     print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
     print("doctalk Summarization duration(seconds): ", round(doctalkSummDur, 5))
     print("doctalk Q&A duration(seconds): ", doctalkQaDur)
-    '''  
+    print("bert duration(seconds): ", bertDur)
+    ''' 
     totalSentsList.append(totalSents)
     totalWordsList.append(totalWords)
     nlpParseDurList.append(nlpParseDur)
     doctalkSummDurList.append(doctalkSummDur)
-    talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-    talker_QA_bert_list.append(doctalkQaDur['talker']['bert'])
-    ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-    ripple_QA_bert_list.append(doctalkQaDur['ripple']['bert'])
-    thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
-    thinker_QA_bert_list.append(doctalkQaDur['thinker']['bert'])
-    bert_QA_bert_list.append(doctalkQaDur['bert']['bert'])
-
+    qaDur_doctalk_self_list.append(doctalkQaDur['self'])
+    qaDur_doctalk_bert_list.append(doctalkQaDur['bert'])
+    qaDur_BERT_bert_list.append(bertDur)
 
     
     questions = article['questions']
-    qidAnswer_Talker =dict()  
-    qidAnswer_Ripple =dict()  
-    qidAnswer_Thinker =dict()
-    qidAnswer_Bert =dict()
-  
+    qaAnswers_doctalk =dict()  
+    qaAnswers_bert = dict()
+
     for j, question in enumerate(questions):
-      qidAnswer_Talker[storyId + "_" + str(j)] = Talker[j]
-      qidAnswer_Ripple[storyId + "_" + str(j)] = Ripple[j] 
-      qidAnswer_Thinker[storyId + "_" + str(j)] = Thinker[j]
-      qidAnswer_Bert[storyId + "_" + str(j)] = Bert[j]
+      qaAnswers_doctalk[storyId + "_" + str(j)] = doctalkAnswers[j]
+      qaAnswers_bert[storyId + "_" + str(j)] = bertAnswers[j]
     
-    fname = outputDir + "talker/" + storyId + ".txt"
-    outputTalker = json.dumps(qidAnswer_Talker)
-    with wopen(fname) as ftalk:
-      ftalk.write(outputTalker + "\n")
+    fname = outputDir + "doctalk/" + storyId + ".txt"
+    outputAnswers = json.dumps(qaAnswers_doctalk)
+    with wopen(fname) as fpred:
+      fpred.write(outputAnswers + "\n")
 
-    fname = outputDir + "ripple/" + storyId + ".txt"
-    outputRipple = json.dumps(qidAnswer_Ripple)
-    with wopen(fname) as fRipple:
-      fRipple.write(outputRipple + "\n")
-  
-    outputThinker = json.dumps(qidAnswer_Thinker)
-    fname = outputDir + "thinker/" + storyId + ".txt"
-    with wopen(fname) as fthink:
-      fthink.write(outputThinker + "\n")
-
-    outputBertAnswer = json.dumps(qidAnswer_Bert)
     fname = outputDir + "bert/" + storyId + ".txt"
-    with wopen(fname) as fbert:
-      fbert.write(outputBertAnswer + "\n")
+    outputAnswers = json.dumps(qaAnswers_bert)
+    with wopen(fname) as fpred:
+      fpred.write(outputAnswers + "\n")
     
     saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
+        qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list)
     #if i==1:break
 
 ###########################################################################################################################
@@ -562,9 +402,7 @@ def answerNarrativeqa():
   outputDir = baseDir + 'output/'
   gitDir = baseDir + 'narrativeqa_github/'
   os.makedirs(outputDir, exist_ok=True)
-  os.makedirs(outputDir + 'talker',exist_ok=True)
-  os.makedirs(outputDir + 'ripple',exist_ok=True)
-  os.makedirs(outputDir + 'thinker',exist_ok=True)
+  os.makedirs(outputDir + 'doctalk',exist_ok=True)
   os.makedirs(outputDir + 'bert',exist_ok=True)
 
   loadResult(outputDir)
@@ -582,89 +420,65 @@ def answerNarrativeqa():
     for row in questionset:
       if row['set'] != 'test': continue
       dqs[row['document_id']].append(row['question']) 
-  #i = 0
+  i = 0
   for document_id in dataIds:
     fname = baseDir + "dev/" + document_id
     if os.path.exists(fname + '.txt') == False:
       continue
-    Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
+    doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname)
+    bertAnswers, bertDur = reason_with_bert(fname)
     '''
-    print('answerNewsQA, Talker:', Talker)
-    print('answerNewsQA, Ripple:', Ripple)
-    print('answerNewsQA, Thinker:', Thinker)
-    print('answerNewsQA, Bert:', Bert)
+    print('doctalkAnswers:', doctalkAnswers)
+    print('bertAnswers:', bertAnswers)
     print('Total sentences:', totalSents)
     print('Total words:', totalWords)
     print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
     print("doctalk Summarization duration(seconds): ", round(doctalkSummDur, 5))
     print("doctalk Q&A duration(seconds): ", doctalkQaDur)
+    print("bert duration(seconds): ", bertDur)
     '''
+
     totalSentsList.append(totalSents)
     totalWordsList.append(totalWords)
     nlpParseDurList.append(nlpParseDur)
     doctalkSummDurList.append(doctalkSummDur)
-    talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-    talker_QA_bert_list.append(doctalkQaDur['talker']['bert'])
-    ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-    ripple_QA_bert_list.append(doctalkQaDur['ripple']['bert'])
-    thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
-    thinker_QA_bert_list.append(doctalkQaDur['thinker']['bert'])
-    bert_QA_bert_list.append(doctalkQaDur['bert']['bert'])
-    
+    qaDur_doctalk_self_list.append(doctalkQaDur['self'])
+    qaDur_doctalk_bert_list.append(doctalkQaDur['bert'])  
+    qaDur_BERT_bert_list.append(bertDur)
 
+    qaAnswers_doctalk = {}
+    qaAnswers_bert = {}
     for j, question in enumerate(dqs[document_id]):
-      qidAnswer_Talker[question] = Talker[j]
-      qidAnswer_Ripple[question] = Ripple[j] 
-      qidAnswer_Thinker[question] = Thinker[j]
-      qidAnswer_Bert[question] = Bert[j]
+      qaAnswers_doctalk[question] = doctalkAnswers[j]
+      qaAnswers_bert[question] = bertAnswers[j]
     
     '''
     print('\n\nDone, save to files')
-    print('qidAnswer_Talker:', qidAnswer_Talker)
-    print('qidAnswer_Ripple:', qidAnswer_Ripple)
-    print('qidAnswer_Thinker:', qidAnswer_Thinker)
-    print('qidAnswer_Bert:', qidAnswer_Bert)
+    print('qaAnswers_doctalk:', qaAnswers_doctalk)
+    print('qaAnswers_bert:', qaAnswers_bert)
     print('totalSentsList:', totalSentsList)
     print('totalWordsList:', totalWordsList)
     print("nlpParseDurList: ", nlpParseDurList)
     print("doctalkSummDurList: ", doctalkSummDurList)
-    print('talker_QA_self_list:', talker_QA_self_list)
-    print('talker_QA_bert_list:', talker_QA_bert_list)
-    print('ripple_QA_self_list:', ripple_QA_self_list)
-    print('ripple_QA_bert_list:', ripple_QA_bert_list)
-    print('thinker_QA_self_list:', thinker_QA_self_list)
-    print('thinker_QA_bert_list:', thinker_QA_bert_list)
-    print('bert_QA_bert_list:', bert_QA_bert_list)
+    print('qaDur_doctalk_self_list:', qaDur_doctalk_self_list)
+    print('qaDur_doctalk_bert_list:', qaDur_doctalk_bert_list)
+    print('qaDur_BERT_bert_list:', qaDur_BERT_bert_list) 
     '''
+    fname = outputDir + "doctalk/" + document_id + ".txt"
+    outputAnswers = json.dumps(qaAnswers_doctalk)
+    with wopen(fname) as fpred:
+      fpred.write(outputAnswers + "\n")
 
-    fname = outputDir + "talker/" + document_id + ".txt"
-    outputTalker = json.dumps(qidAnswer_Talker)
-    with wopen(fname) as ftalk:
-      ftalk.write(outputTalker + "\n")
-
-    fname = outputDir + "ripple/" + document_id + ".txt"
-    outputRipple = json.dumps(qidAnswer_Ripple)
-    with wopen(fname) as fRipple:
-      fRipple.write(outputRipple + "\n")
-  
-    outputThinker = json.dumps(qidAnswer_Thinker)
-    fname = outputDir + "thinker/" + document_id + ".txt"
-    with wopen(fname) as fthink:
-      fthink.write(outputThinker + "\n")
-
-    outputBertAnswer = json.dumps(qidAnswer_Bert)
     fname = outputDir + "bert/" + document_id + ".txt"
-    with wopen(fname) as fbert:
-      fbert.write(outputBertAnswer + "\n")
+    outputAnswers = json.dumps(qaAnswers_bert)
+    with wopen(fname) as fpred:
+      fpred.write(outputAnswers + "\n")
     
     saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
-    #i = i+1
-    #if i==1:break
+        qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list)
+    i = i+1
+    #if i==2:break
 
 
 ###########################################################################################################################
@@ -719,283 +533,167 @@ def answerHotpotQA():
     #if i<12: continue   
     quest_id = article["_id"]
     fname = "dataset/HotpotQA/dev/" + quest_id
-    Talker, Ripple, Thinker, Bert,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
+    doctalkAnswers,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname)
+    bertAnswers, bertDur = reason_with_bert(fname)
     '''
-    print('answerNewsQA, Talker:', Talker)
-    print('answerNewsQA, Ripple:', Ripple)
-    print('answerNewsQA, Thinker:', Thinker)
-    print('answerNewsQA, Bert:', Bert)
+    print('doctalkAnswers:', doctalkAnswers)
+    print('bertAnswers:', bertAnswers)
     print('Total sentences:', totalSents)
     print('Total words:', totalWords)
     print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
     print("doctalk Summarization duration(seconds): ", round(doctalkSummDur, 5))
     print("doctalk Q&A duration(seconds): ", doctalkQaDur)
+    print("Bert Q&A duration(seconds): ", bertDur)
     '''
-    qidAnswer_Talker[quest_id] = Talker[0]
-    qidAnswer_Ripple[quest_id] = Ripple[0]
-    qidAnswer_Thinker[quest_id] = Thinker[0]
-    qidAnswer_Bert[quest_id] = Bert[0]
+    qaAnswers_doctalk[quest_id] = doctalkAnswers[0]
+    qaAnswers_bert[quest_id] = bertAnswers[0]
     totalSentsList.append(totalSents)
     totalWordsList.append(totalWords)
     nlpParseDurList.append(nlpParseDur)
     doctalkSummDurList.append(doctalkSummDur)
-    talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-    talker_QA_bert_list.append(doctalkQaDur['talker']['bert'])
-    ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-    ripple_QA_bert_list.append(doctalkQaDur['ripple']['bert'])
-    thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
-    thinker_QA_bert_list.append(doctalkQaDur['thinker']['bert'])
-    bert_QA_bert_list.append(doctalkQaDur['bert']['bert'])
+    qaDur_doctalk_self_list.append(doctalkQaDur['self'])
+    qaDur_doctalk_bert_list.append(doctalkQaDur['bert'])
+    qaDur_BERT_bert_list.append(bertDur)
 
     '''
     print('\n\nDone, save to files')
-    print('qidAnswer_Talker:', qidAnswer_Talker)
-    print('qidAnswer_Ripple:', qidAnswer_Ripple)
-    print('qidAnswer_Thinker:', qidAnswer_Thinker)
-    print('qidAnswer_Bert:', qidAnswer_Bert)
+    print('qaAnswers_doctalk:', qaAnswers_doctalk)
+    print('qaAnswers_bert:', qaAnswers_bert)   
     print('totalSentsList:', totalSentsList)
     print('totalWordsList:', totalWordsList)
     print("nlpParseDurList: ", nlpParseDurList)
     print("doctalkSummDurList: ", doctalkSummDurList)
-    print('talker_QA_self_list:', talker_QA_self_list)
-    print('talker_QA_bert_list:', talker_QA_bert_list)
-    print('ripple_QA_self_list:', ripple_QA_self_list)
-    print('ripple_QA_bert_list:', ripple_QA_bert_list)
-    print('thinker_QA_self_list:', thinker_QA_self_list)
-    print('thinker_QA_bert_list:', thinker_QA_bert_list)
-    print('bert_QA_bert_list:', bert_QA_bert_list)
+    print('qaDur_doctalk_self_list:', qaDur_doctalk_self_list)
+    print('qaDur_doctalk_bert_list:', qaDur_doctalk_bert_list)
+    print('qaDur_BERT_bert_list:', qaDur_BERT_bert_list)   
     '''
-    
-    outputTalker = json.dumps(qidAnswer_Talker)
-    with wopen(outputDir + 'predictions_talker.json' ) as ftalk:
-      ftalk.write(outputTalker + "\n")
-
-    outputRipple = json.dumps(qidAnswer_Ripple)
-    with wopen(outputDir + 'predictions_ripple.json' ) as fRipple:
-      fRipple.write(outputRipple + "\n")
-    
-    outputThinker = json.dumps(qidAnswer_Thinker)
-    with wopen(outputDir + 'predictions_thinker.json' ) as fthink:
-      fthink.write(outputThinker + "\n")
-
-    outputBert = json.dumps(qidAnswer_Bert)
-    with wopen(outputDir + 'predictions_bert.json' ) as fbert:
-      fbert.write(outputBert + "\n")
+    outputAnswers = json.dumps(qaAnswers_doctalk)
+    with wopen(outputDir + 'predictions_doctalk.json' ) as fpred:
+      fpred.write(outputAnswers + "\n")
+    outputAnswers = json.dumps(qaAnswers_bert)
+    with wopen(outputDir + 'predictions_bert.json' ) as fpred:
+      fpred.write(outputAnswers + "\n")
 
     saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
-    #if i ==500 : break
+        qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list )
+    #if i==2 : break
 
 
 ###########################################################################################################################
 ### below if for biased_textrank
+# saveTextrank_QuestionContent('test')  or saveTextrank_QuestionContent('val')
 ##############################################################################################################################
-def saveTextrank_QuestionContent():
-  os.makedirs('dataset/textrank/dev/', exist_ok=True)
-  os.makedirs('dataset/textrank/answer/', exist_ok=True)
-  dataset= jload('dataset/textrank/biased_textrank_git/data/liar/clean_test.json')  
+def saveTextrank_QuestionContent(type):
+  testpath = 'dataset/textrank/' + type + '/'
+  os.makedirs(testpath, exist_ok=True)
+  os.makedirs(testpath + 'dev/', exist_ok=True)
+  os.makedirs(testpath + 'answer/', exist_ok=True)
+  dataset= jload('dataset/textrank/biased_textrank_git/data/liar/clean_' + type + '.json')  
   #data is []
   print('dataset length:', len(dataset))
   for article in dataset:    
     document_id = article["id"]
     question = article["claim"].replace('&nbsp;', '') 
-    fqname = "dataset/textrank/dev/" + str(document_id) + "_quest.txt" 
+    fqname = testpath + 'dev/' + str(document_id) + "_quest.txt" 
     with wopen(fqname) as f:
         f.write(question + "\n")    
 
     text = article["statements"].replace('&nbsp;', '') 
-    fname = "dataset/textrank/dev/" + str(document_id) + ".txt"
+    fname = testpath + 'dev/' + str(document_id) + ".txt"
     with wopen(fname) as f :
       f.write(text + '\n')
 
     answer = article["new_justification"].replace('&nbsp;', '')      
-    fqname = "dataset/textrank/answer/" + str(document_id) + ".txt" 
+    fqname = testpath + 'answer/' + str(document_id) + ".txt" 
     with wopen(fqname) as f:
       f.write(answer + "\n")
 
-
-def answerTextrank():
-  outputDir = 'dataset/textrank/output/'
+#answerTextrank('test') or answerTextrank('val')
+def answerTextrank(type):
+  outputDir = 'dataset/textrank/' + type + '/output/'
   os.makedirs(outputDir, exist_ok=True)
-  os.makedirs(outputDir + 'talker',exist_ok=True)
-  os.makedirs(outputDir + 'ripple',exist_ok=True)
-  os.makedirs(outputDir + 'thinker',exist_ok=True)
+  os.makedirs(outputDir + 'predictions',exist_ok=True)
   loadResult(outputDir)
-
-  '''
-  print('\n\nbefore start')
-  print('totalSentsList:', totalSentsList)
-  print('totalWordsList:', totalWordsList)
-  print("nlpParseDurList: ", nlpParseDurList)
-  print("doctalkSummDurList: ", doctalkSummDurList)
-  print("talker_QA_self_list: ", talker_QA_self_list)
-  print("ripple_QA_self_list: ", ripple_QA_self_list)
-  print("thinker_QA_self_list: ", thinker_QA_self_list)
-  '''
+  
 
   for id in range(0, 1283):
-    fname = "dataset/textrank/dev/" + str(id)
+    fname = 'dataset/textrank/' + type + '/dev/' + str(id)
     print(fname)
     if os.path.exists(fname + '.txt') == False:
       continue
-    Talker, Ripple, Thinker, _ ,totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk_FromFile(fname)
-    '''  
-    print('Talker:', Talker)
-    print('Ripple:', Ripple)
-    print('Thinker:', Thinker)
+    doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSummDur, doctalkQaDur = reason_with_doctalk(fname, askBert=0)
+      
+    print('doctalkAnswers:', doctalkAnswers)
     print('Total sentences:', totalSents)
     print('Total words:', totalWords)
     print("Stanza nlp parse duration(seconds): ", round(nlpParseDur, 5))
     print("doctalk Summarization duration(seconds): ", round(doctalkSummDur, 5))
     print("doctalk Q&A duration(seconds): ", doctalkQaDur)
-    '''  
+      
     totalSentsList.append(totalSents)
     totalWordsList.append(totalWords)
     nlpParseDurList.append(nlpParseDur)
     doctalkSummDurList.append(doctalkSummDur)
-    talker_QA_self_list.append(doctalkQaDur['talker']['self'])
-    ripple_QA_self_list.append(doctalkQaDur['ripple']['self'])
-    thinker_QA_self_list.append(doctalkQaDur['thinker']['self'])
+    qaDur_doctalk_self_list.append(doctalkQaDur['self'])
 
-    fname = outputDir + "talker/" + str(id) + ".txt"
-    outputTalker = json.dumps(qidAnswer_Talker)
-    with wopen(fname) as ftalk:
-      ftalk.write(Talker[0] + "\n")
-
-    fname = outputDir + "ripple/" + str(id) + ".txt"
-    outputRipple = json.dumps(qidAnswer_Ripple)
-    with wopen(fname) as fRipple:
-      fRipple.write(Ripple[0] + "\n")
-  
-    outputThinker = json.dumps(qidAnswer_Thinker)
-    fname = outputDir + "thinker/" + str(id) + ".txt"
-    with wopen(fname) as fthink:
-      fthink.write(Thinker[0] + "\n")
-
-
-    '''
+    fname = outputDir + "predictions/" + str(id) + ".txt"
+    with wopen(fname) as fpred:
+      fpred.write(doctalkAnswers[0] + "\n")
+    
     print('\n\nDone, save to files')
     print('totalSentsList:', totalSentsList)
     print('totalWordsList:', totalWordsList)
     print("nlpParseDurList: ", nlpParseDurList)
     print("doctalkSummDurList: ", doctalkSummDurList)
-    print('talker_QA_self_list:', talker_QA_self_list)
-    print('ripple_QA_self_list:', ripple_QA_self_list)
-    print('thinker_QA_self_list:', thinker_QA_self_list)
-    '''
+    print('qaDur_doctalk_self_list:', qaDur_doctalk_self_list)
+    
     saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
         nlpParseDurList, doctalkSummDurList, 
-        talker_QA_self_list, talker_QA_bert_list,
-        ripple_QA_self_list, ripple_QA_bert_list,
-        thinker_QA_self_list, thinker_QA_bert_list,
-        bert_QA_bert_list )
-    
+        qaDur_doctalk_self_list )
+    #if id == 1: break
 
 
 
-
-def saveCoQA_QuestionContent():
-  dataset= jload('dataset/CoQA/coqa-dev-v1.0.json')  
-  print('data length:', len(dataset['data']))  
-  for article in dataset['data']:
-    quest_id = article["id"]
-    fname = "dataset/CoQA/dev/" + quest_id + ".txt"
-    conext = article['story']
-    with wopen(fname) as fcontext :
-      fcontext.write(conext + "\n")
-    fcontext.close()          
-    questions = article['questions']
-    fqname = "dataset/CoQA/dev/" + quest_id + "_quest.txt" 
-    with wopen(fqname) as fquest:
-      for question in questions:
-        q=question['input_text']
-        fquest.write(q + "\n")
-      fquest.close()
-      questions = article['questions']
-    answers = article['answers']
-    faname = "dataset/CoQA/answer/" + quest_id + ".txt" 
-    with wopen(faname) as fanswer:
-      for answer in answers:
-        span_text=answer['span_text']
-        input_text = answer['input_text']
-        fanswer.write(span_text + "\n" + input_text + "\n")
-      fanswer.close()
-
-
-def answerCoQA():
-  dataset= jload('dataset/CoQA/coqa-dev-v1.0.json')
-  #data is []
-  qidTalkAnswerMap =dict()
-  qidThinkAnswerMap =dict() 
-  qidDiffAnswerMap =dict()  
-  for i, article in enumerate(dataset['data']):    
-    quest_id = article["id"]
-    fname = "dataset/CoQA/dev/" + quest_id
-    talkans, thinkans = reason_with_doctalk_FromFile(fname)
-    print('answerCoQA:', talkans, ',', thinkans )
-    '''
-    if not talkans[0]: talkans[0] = ''
-    qidTalkAnswerMap[quest_id] = talkans[0]
-    if not thinkans[0]: thinkans[0] = ''
-    qidThinkAnswerMap[quest_id] = thinkans[0]
-    if talkans != thinkans:
-      diff = 'talk:' + talkans[0] + '; think:' + thinkans[0]
-      qidDiffAnswerMap[quest_id] = diff
-    '''
-    if i > 1 : break
-    '''
-  print('\nqidTalkAnswerMap:', qidTalkAnswerMap)
-  print('\nqidThinkAnswerMap:', qidThinkAnswerMap)
-  print('\nqidDiffAnswerMap', qidDiffAnswerMap)
-
-  answerTalkMap = dict()
-  answerTalkMap["answer"] = qidTalkAnswerMap      
-  outputTalk = json.dumps(answerTalkMap)
-  fname = "dataset/HotpotQA/pred_talk.json"
-  with wopen(fname) as ftalk:
-    ftalk.write(outputTalk + "\n")
-  ftalk.close()
-
-  answerThinkMap = dict()
-  answerThinkMap["answer"] = qidThinkAnswerMap 
-  outputThink = json.dumps(answerThinkMap)
-  fname = "dataset/HotpotQA/pred_think.json"
-  with wopen(fname) as fthink:
-    fthink.write(outputThink + "\n")
-  fthink.close()
-  outputDiff = json.dumps(qidDiffAnswerMap)
-  fname = "dataset/HotpotQA/pred_diff.json"
-  with wopen(fname) as fdiff:
-    fdiff.write(outputDiff + "\n")
-  fdiff.close()
-  '''
-
-
-
-def reason_with_doctalk_FromFile(fname) :  
+def reason_with_doctalk(fname, askBert=0.1) :  
   params = talk_params()
-  params.with_answerer=True
+  params.with_answerer=False #True: get think answer, False: get talk answer
   params.top_answers = 4
+  params.max_answers = 4 # need test
+  params.with_bert_qa = askBert
   params.answers_by_rank = True
-  Talker, Ripple, Thinker, Bert, totalSents, totalWords, nlpParseDur, doctalkSumDur, QADur= reason_with_File(fname, params)
-  return Talker, Ripple, Thinker, Bert, totalSents, totalWords, nlpParseDur, doctalkSumDur, QADur
+  doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSumDur, doctalkQaDur= reason_with(fname, params=params)
+  return doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSumDur, doctalkQaDur
 
 
-def reason_with_doctalk_FromText(text, qlist) :  
-  params = talk_params()
-  params.with_answerer=True
-  params.answers_by_rank = True
-  Talker, Ripple, Thinker, Bert = reason_with_Text(text, qlist, params)
-  return Talker, Ripple, Thinker, Bert
+def reason_with_bert(fname):
+    startTime = time.time()
+    with open(fname + '.txt','r',encoding='utf8') as f:
+        content=f.read()
+    with open(fname + '_quest.txt','r',encoding='utf8') as f:
+        qs = list(l.strip() for l in f)
+    answers = []
+    for q in qs :
+        if not q :break
+        print("\n===========>QUESTION: ", q)
+        r = ask_bert(content, q, 0.0001)
+        if not r :
+            r = ''
+        removes = [",",".", "?", "!", ",\"", ".\"","?\"", "!\"", "'s"]
+        for remove in removes:
+            if r.endswith(remove):
+                keepLen = len(r) - len(remove)
+                r = r[:keepLen]  
+        print("\n===========>BERT SHORT ANSWER:",r,'<===========\n')
+        answers.append(r)
+    endTime = time.time()
+    duration = endTime - startTime
+    return answers, duration
   
 
 def saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList, 
                   nlpParseDurList, doctalkSummDurList,
-                  tlkqss, tlkqbs, rqss, rqbs, thkqss, thkqbs, bbs ):
+                  qss, qbs=[], bertDurs=[] ):
   outputTotalSents = json.dumps(totalSentsList)
   with wopen(outputDir + 'Total_Sents.json' ) as f:
     f.write(outputTotalSents + "\n")
@@ -1012,37 +710,26 @@ def saveStats_WordsDuration(outputDir, totalSentsList, totalWordsList,
   with wopen(outputDir + 'DoctalkSumm_duration.json' ) as f:
     f.write(outputDoctalkSummDur + "\n")
 
-  with wopen(outputDir + 'QA_talk_self_duration.json' ) as f:
-    f.write(json.dumps(tlkqss) + "\n")
-  with wopen(outputDir + 'QA_talk_bert_duration.json' ) as f:
-    f.write(json.dumps(tlkqbs) + "\n")
-  with wopen(outputDir + 'QA_ripple_self_duration.json' ) as f:
-    f.write(json.dumps(rqss) + "\n")
-  with wopen(outputDir + 'QA_ripple_bert_duration.json' ) as f:
-    f.write(json.dumps(rqbs) + "\n")
-  with wopen(outputDir + 'QA_thinker_self_duration.json' ) as f:
-    f.write(json.dumps(thkqss) + "\n")
-  with wopen(outputDir + 'QA_thinker_bert_duration.json' ) as f:
-    f.write(json.dumps(thkqbs) + "\n")
-  with wopen(outputDir + 'QA_bert_bert_duration.json' ) as f:
-    f.write(json.dumps(bbs) + "\n")
- 
+  with wopen(outputDir + 'QA_doctalk_self_duration.json' ) as f:
+    f.write(json.dumps(qss) + "\n")
+  if len(qbs)>1:
+    with wopen(outputDir + 'QA_doctalk_bert_duration.json' ) as f:
+      f.write(json.dumps(qbs) + "\n")
+  if len(bertDurs)>1:
+    with wopen(outputDir + 'QA_BERT_bert_duration.json' ) as f:
+      f.write(json.dumps(bertDurs) + "\n")
 
 def loadResult(outputdir):
-  global qidAnswer_Talker, qidAnswer_Ripple, qidAnswer_Thinker, qidAnswer_Bert
+  global qaAnswers_doctalk, qaAnswers_bert
   global totalSentsList, totalWordsList
   global nlpParseDurList, doctalkSummDurList
-  global talker_QA_self_list, talker_QA_bert_list, ripple_QA_self_list, ripple_QA_bert_list
-  global thinker_QA_self_list, thinker_QA_bert_list, bert_QA_bert_list
+  global qaDur_doctalk_self_list, qaDur_doctalk_bert_list, qaDur_BERT_bert_list
 
-  if os.path.exists(outputdir +  'predictions_talker.json'):
-    qidAnswer_Talker = jload( outputdir +  'predictions_talker.json')
-  if os.path.exists(outputdir +  'predictions_ripple.json'):
-    qidAnswer_Ripple = jload( outputdir +  'predictions_ripple.json')
-  if os.path.exists(outputdir +  'predictions_thinker.json'):
-    qidAnswer_Thinker = jload( outputdir +  'predictions_thinker.json')
+
+  if os.path.exists(outputdir +  'predictions_doctalk.json'):
+    qaAnswers_doctalk = jload( outputdir +  'predictions_doctalk.json')
   if os.path.exists(outputdir +  'predictions_bert.json'):
-    qidAnswer_Bert = jload( outputdir +  'predictions_bert.json')
+    qaAnswers_bert = jload( outputdir +  'predictions_bert.json')
   if os.path.exists(outputdir +  'Total_Sents.json'):
     totalSentsList = jload( outputdir +  'Total_Sents.json')
   if os.path.exists(outputdir +  'Total_Words.json'):
@@ -1051,37 +738,23 @@ def loadResult(outputdir):
     nlpParseDurList = jload( outputdir +  'nlpParse_duration.json')
   if os.path.exists(outputdir +  'DoctalkSumm_duration.json'):
     doctalkSummDurList = jload( outputdir +  'DoctalkSumm_duration.json') 
-  if os.path.exists(outputdir +  'QA_talk_self_duration.json'):
-    talker_QA_self_list =  jload( outputdir +  'QA_talk_self_duration.json') 
-  if os.path.exists(outputdir +  'QA_talk_bert_duration.json'):
-    talker_QA_bert_list =  jload( outputdir +  'QA_talk_bert_duration.json') 
-  if os.path.exists(outputdir +  'QA_ripple_self_duration.json'):
-    ripple_QA_self_list =  jload( outputdir +  'QA_ripple_self_duration.json') 
-  if os.path.exists(outputdir +  'QA_ripple_bert_duration.json'):
-    ripple_QA_bert_list =  jload( outputdir +  'QA_ripple_bert_duration.json') 
-  if os.path.exists(outputdir +  'QA_thinker_self_duration.json'):
-    thinker_QA_self_list =  jload( outputdir +  'QA_thinker_self_duration.json') 
-  if os.path.exists(outputdir +  'QA_thinker_bert_duration.json'):
-    thinker_QA_bert_list =  jload( outputdir +  'QA_thinker_bert_duration.json') 
-  if os.path.exists(outputdir +  'QA_bert_bert_duration.json'):
-    bert_QA_bert_list =  jload( outputdir +  'QA_bert_bert_duration.json') 
+  if os.path.exists(outputdir +  'QA_doctalk_self_duration.json'):
+    qaDur_doctalk_self_list =  jload( outputdir +  'QA_doctalk_self_duration.json') 
+  if os.path.exists(outputdir +  'QA_doctalk_bert_duration.json'):
+    qaDur_doctalk_bert_list =  jload( outputdir +  'QA_doctalk_bert_duration.json') 
+  if os.path.exists(outputdir +  'QA_BERT_bert_duration.json'):
+    qaDur_BERT_bert_list =  jload( outputdir +  'QA_BERT_bert_duration.json') 
+
   print('loadSQuADResult:')
-  print('qidAnswer_Talker:', qidAnswer_Talker)
-  print('qidAnswer_Ripple:', qidAnswer_Ripple)
-  print('qidAnswer_Thinker:', qidAnswer_Thinker)
-  print('qidAnswer_Bert:', qidAnswer_Bert)
+  print('qaAnswers_doctalk:', qaAnswers_doctalk)
+  print('qaAnswers_bert:', qaAnswers_bert)
   print('totalSentsList:', totalSentsList)
   print('totalWordsList:', totalWordsList)
   print("nlpParseDurList: ", nlpParseDurList)
   print("doctalkSummDurList: ", doctalkSummDurList)
-  print("talker_QA_self_list: ", talker_QA_self_list)
-  print("talker_QA_bert_list: ", talker_QA_bert_list)
-  print("ripple_QA_self_list: ", ripple_QA_self_list)
-  print("ripple_QA_bert_list: ", ripple_QA_bert_list)
-  print("thinker_QA_self_list: ", thinker_QA_self_list)
-  print("thinker_QA_bert_list: ", thinker_QA_bert_list)
-  print("bert_QA_bert_list: ", bert_QA_bert_list)
-
+  print("qaDur_doctalk_self_list: ", qaDur_doctalk_self_list)
+  print("qaDur_doctalk_bert_list: ", qaDur_doctalk_bert_list)
+  print("qaDur_BERT_bert_list: ", qaDur_BERT_bert_list)
 
 if __name__ == '__main__' :
   pass

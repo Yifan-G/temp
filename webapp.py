@@ -54,7 +54,7 @@ def answerer(talker, lang):
     notice.empty()
     question = st.text_input("Enter a question")
     if question:
-        long_answers, short_answer = interact_full_shortAnswers(question, talker)
+        long_answers, short_answer = interact(question, talker)
         if lang == 'en':
             st.write(f"Long Answer:\n" + '\n\n'.join(long_answers))
             st.write(f"Short Answer: " + short_answer[:short_answer.rfind(',')])

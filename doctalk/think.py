@@ -23,9 +23,8 @@ class Thinker(Talker) :
   '''
   def __init__(self,**kwargs):
     super().__init__(**kwargs)
-
+    
     self.svo_graph = self.to_svo_graph()
-    self.params=talk_params()
     self.rels= (
       'as_in','is_like','kind_of', 'part_of','has_instance'
       'subject_in', 'object_in', 'verb_in')
@@ -35,17 +34,30 @@ class Thinker(Talker) :
   def distill(self,q,answers,answerer):
 
     ''' handler for question q asked from this Thinker'''
+    print('params.with_answerer:', self.params.with_answerer)
+    print('params.top_answers:', self.params.top_answers)
+    print('params.max_answers:', self.params.max_answers)
+    print('params.with_bert_qa:', self.params.with_bert_qa)
+    print('params.answers_by_rank:', self.params.answers_by_rank)
 
-    # apply BERT pipeline to italk.py answers
-    self.get_gist(q, answers)
+
+    # apply BERT pipeline to talk.py answers
+    startTime = time.time()
+
+    shortened = self.get_gist(q, answers)
+
+    endTime = time.time()
+    self.qaDuration['talk']['bert'] += endTime - startTime
 
     if not answerer:
-      return
-
+      return shortened
+    
+    startTime = time.time()
+    print('\nTHINK self starttime:', startTime)
     best=list(self.reason_about(answers,answerer))
     inf_answers = [(x[0], self.get_sentence(x[0]), x[1]) for x in best]
 
-    print('\nINFERRED ANSWERS:\n')
+    print('\nTHINK INFERRED ANSWERS:\n')
 
     if self.params.with_refiner:
       #ranked = sorted(best, reverse=True, key=lambda x: x[1])
@@ -65,67 +77,19 @@ class Thinker(Talker) :
       for x in best:
         print(x[0],end=': ')
         print(nice(self.get_sentence(x[0])), '\n')
+      
+    endTime = time.time()
+    print('\nTHINK self endTime:', endTime)
+    self.qaDuration['think']['self'] += endTime - startTime
 
     # apply BERT pipeline to inferred answers
-    self.get_gist(q,inf_answers)
-
-  
-
-  def distill_talker_ripple(self,q, answers_talk, answers_ripple,answerer):
-
-    ''' handler for question q asked from this Thinker'''
-
-    # apply BERT pipeline to italk.py answers
-    '''
-    print('\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
-    print('Question:', q )
-
-    
-    print('\n^^^^^^^^^, think, distil, Talker^^^^^^^^^^^^')
-    '''
-    
     startTime = time.time()
-    shortAnswerInTalk=self.get_gist(q, answers_talk)
-    endtime = time.time()
-    self.qaDuration['talker']['bert'] += endtime - startTime
-    
-    #print('\n^^^^^^^^^, think, distil, Ripple^^^^^^^^^^^^')
-    
-    startTime = time.time()
-    shortAnswerInRipple=self.get_gist(q, answers_ripple)
-    endtime = time.time()
-    self.qaDuration['ripple']['bert'] += endtime - startTime
-    
-    if not answerer:
-      return
-
-    startTime = time.time()
-    best=list(self.reason_about([],answerer))
-    inf_answers = [(x[0], self.get_sentence(x[0]), x[1]) for x in best]
-
-    # apply BERT pipeline to inferred answers
-    #print('\n^^^^^^^^^, think, distil, Thinker^^^^^^^^^^^^')
-    
-    endtime = time.time()
-    self.qaDuration['thinker']['self'] += endtime - startTime
-
-    startTime = time.time()
-    shortAnswerInThink = self.get_gist(q,inf_answers)
-    endtime = time.time()
-    
-    self.qaDuration['thinker']['bert'] += endtime - startTime
-    
-    #print('\n^^^^^^^^^, think, distil, Bert^^^^^^^^^^^^')
-    
-    startTime = time.time()
-    shortAnswerInBert = self.get_gist(q,[], True)
-    endtime = time.time()
-    self.qaDuration['bert']['bert'] += endtime - startTime
-    
-  
-    return shortAnswerInTalk, shortAnswerInRipple, shortAnswerInThink, shortAnswerInBert
-
-
+    print('\nTHINK bert startTime:', startTime)
+    shortened = self.get_gist(q,inf_answers)
+    endTime = time.time()
+    print('\nTHINK bert endTime:', endTime)
+    self.qaDuration['think']['bert'] += endTime - startTime
+    return shortened
 
   def extract_rels(self,G,good_lemmas):
     depth = self.params.think_depth
@@ -267,37 +231,7 @@ def without_rels(G,rels) :
 '''
 
 
-def reason_with(fname,query=True) :
-  '''
-  Activates dialog about document in <fname>.txt with questions
-  in <fname>_quests.txt
-  Assumes stanford corenlp server listening on port 9000
-  with annotators listed in params.py  available.
-  '''
-  t = Thinker(from_file=fname+'.txt')
-  show =t.params.show_pics
-
-  t.show_all()
-  if query:
-    t.query_with(fname+'_quest.txt')
-    if show :
-      pshow(t,file_name=fname+"_quest.txt",
-          cloud_size=t.params.cloud_size,
-          show=t.params.show_pics)    
-        
-  endQATime = time.time()
-  print("\n\nendQATime(Seconds) =", endQATime)	
-  local_time = time.ctime(endQATime)
-  print("endQATimeLocal time:", local_time)
-
-  print("Total duration(seconds): ", (endQATime - t.startTime))
-  print("Stanza nlp parse duration(seconds): ", (t.endParseTime - t.startTime))
-  print("doctalk Q&A duration(seconds): ", (endQATime - t.endParseTime))
-
-  
-
-
-def reason_with_File(fname, params, query=True) :
+def reason_with(fname, params, query=True) :
   '''
   Activates dialog about document in <fname>.txt with questions
   in <fname>_quests.txt
@@ -309,14 +243,11 @@ def reason_with_File(fname, params, query=True) :
 
   t.show_all()
   if query:
-    talkAnswer, rippleAnswer, thinkAnswer, bertAnswer = query_with_allAlgorithms(t, fname+'_quest.txt')
+    answers = t.query_with(fname+'_quest.txt')
     if show :
       pshow(t,file_name=fname+"_quest.txt",
           cloud_size=t.params.cloud_size,
-          show=t.params.show_pics)
-  
-
-  
+          show=t.params.show_pics)  
   
   print('Total sentences:', t.totalSents)
   print('Total words:', t.totalWords)
@@ -326,23 +257,12 @@ def reason_with_File(fname, params, query=True) :
   
   print("Stanza nlp parse duration(seconds): ", nlpParseDuration)
   print("doctalk summKeys duration(seconds): ", sumkeysDuration)
-  print("QA duration:\n", t.qaDuration)
+  if params.with_answerer == False:
+    qaDuration = t.qaDuration['talk']    
+  else:
+    qaDuration = t.qaDuration['think'] 
+  print("QA duration:\n", qaDuration) 
   
-  
-  return talkAnswer, rippleAnswer, thinkAnswer, bertAnswer, t.totalSents, t.totalWords, nlpParseDuration, sumkeysDuration, t.qaDuration
+  return answers, t.totalSents, t.totalWords, nlpParseDuration, sumkeysDuration, qaDuration
 
-
-def reason_with_Text( text, qlist, params, query=True) :
-  '''
-  Activates dialog about document in <fname>.txt with questions
-  in <fname>_quests.txt
-  Assumes stanford corenlp server listening on port 9000
-  with annotators listed in params.py  available.
-  '''
-  t = Thinker(from_text=text, params=params)
-  show =t.params.show_pics
-  t.show_all()
-  if query:
-    talkAnswer, rippleAnswer, thinkAnswer, bertAnswer = query_with_allAlgorithms(t, qlist)
-  return talkAnswer, rippleAnswer, thinkAnswer, bertAnswer
 

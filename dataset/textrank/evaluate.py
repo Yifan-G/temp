@@ -50,13 +50,13 @@ def avg(xs) :
   if 0==l : return None
   return s/l  
 
-def eval_with_rouge(i, alg) :
+def eval_with_rouge(i) :
   files=[]
   f=[]
   p=[]
   r=[] 
   ref_dir = "answer/"
-  pred_dir = "output/" + alg + "/"
+  pred_dir = "output/predictions/"
   doc_files = sorted(glob.glob("answer/*.txt"))
   print(len(doc_files))
   j = 0
@@ -66,7 +66,7 @@ def eval_with_rouge(i, alg) :
     pred_name=pred_dir+fname
     #print('fname:',fname)
     #print('ref_name:', ref_name)
-    #print('rouge', i, ', alg=', alg, ', pred_name:', pred_name)
+    #print('rouge', i, ', pred_name:', pred_name)
 
     with open(ref_name,'r',encoding='utf8') as fgold:
       gold=fgold.read()   
@@ -79,7 +79,7 @@ def eval_with_rouge(i, alg) :
       print('silver file missing:', pred_name)
       continue
     #print('gold:\n', gold )
-    #print(alg, 'silver:\n', silver )
+    #print('silver:\n', silver )
     k=0
     for res in rs.rstat(silver,gold) :
       if k==i:    
@@ -112,13 +112,12 @@ def eval_with_rouge(i, alg) :
 
 def main():
   content = ''
-  for alg in ['talker', 'ripple', 'thinker' ]:
-    r1 = eval_with_rouge(0, alg )  # 1
-    r2 = eval_with_rouge(1, alg)  # 2
-    rl = eval_with_rouge(2, alg)  # l
-    content += alg + ': ROUGE_1 F-Measure= '+ str(round(r1[2], 5)) 
-    content += ', ROUGE_2 F-Measure= '+ str(round(r2[2],2))
-    content +=  ', ROUGE_L F-Measure= ' + str(round(rl[2], 5)) + '\n'
+  r1 = eval_with_rouge(0 )  # 1
+  r2 = eval_with_rouge(1)  # 2
+  rl = eval_with_rouge(2)  # l
+  content += 'ROUGE_1 F-Measure= '+ str(round(r1[2], 5)) 
+  content += ', ROUGE_2 F-Measure= '+ str(round(r2[2],5))
+  content +=  ', ROUGE_L F-Measure= ' + str(round(rl[2], 5)) + '\n'
   
   outDir = 'output/'
   totalQ = 1282
@@ -130,14 +129,9 @@ def main():
   avgNlpParsrDur = round(sum(nlpParseDurList)/len(totalWordsList), 5)
   doctalkSummDurList = jload( outDir + 'DoctalkSumm_duration.json')
   avgDoctalkSummDur = round(sum(doctalkSummDurList)/len(totalWordsList), 5)  
-  talker_QA_self_list = jload( outDir + 'QA_talk_self_duration.json')
-  avgTlkQaSelf = round(sum(talker_QA_self_list)/totalQ, 5)
+  qaDur_doctalk_self_list = jload( outDir + 'QA_doctalk_self_duration.json')
+  avgDoctalkQaSelf = round(sum(qaDur_doctalk_self_list)/totalQ, 5)
 
-  ripple_QA_self_list = jload( outDir + 'QA_ripple_self_duration.json')
-  avgRiQaSelf = round(sum(ripple_QA_self_list)/totalQ, 5)
-
-  thinker_QA_self_list = jload( outDir + 'QA_thinker_self_duration.json')
-  avgThQaSelf = round(sum(thinker_QA_self_list)/totalQ, 5)
 
   stats = 'average Sentences: ' + str(avgSents) + '\n'
   stats += 'average words: ' + str(avgWords) + '\n'
@@ -146,10 +140,7 @@ def main():
   stats += 'average Doctak summarization duration per article (seconds): ' + str(avgDoctalkSummDur) + '\n' 
 
   stats += 'Total questions: ' + str(totalQ) + '\n'
-  stats += 'average talker self duration per question (seconds): ' + str(avgTlkQaSelf) + '\n' 
-  stats += 'average ripple self duration per question (seconds): ' + str(avgRiQaSelf) + '\n' 
-  stats += 'average thinker self duration per question (seconds): ' + str(avgThQaSelf) + '\n' 
-
+  stats += 'average doctalk self duration per question (seconds): ' + str(avgDoctalkQaSelf) + '\n' 
 
   print(stats )
   print("score:\n", content)

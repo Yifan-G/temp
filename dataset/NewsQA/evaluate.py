@@ -65,7 +65,7 @@ def make_eval_dict(exact_scores, f1_scores):
   return score
 
 
-def get_raw_scores(type):
+def get_raw_scores(alg):
   exact_scores = {}
   f1_scores = {}
   dataset= jload('combined-newsqa-data-v1.json')
@@ -78,30 +78,24 @@ def get_raw_scores(type):
     keeplen= len(storyId) - len(".story")
     storyId = storyId[:keeplen]
     golds = jload("answer/" + storyId + ".txt")
-    preds = jload("output/" + type + '/' + storyId + ".txt")
+    preds = jload("output/" + alg + '/' + storyId + ".txt")
     for key in golds:
       gold =normalize_answer(golds[key])
       pred = normalize_answer(preds[key])
       exact_scores[key] = compute_exact(gold, pred)
       f1_scores[key] = compute_f1(gold, pred)
-    if i == 3779: break
+    #if i == 1: break
   return exact_scores, f1_scores
 
+  
+
 def main():
-  exact_raw, f1_raw = get_raw_scores('talker')
-  out_eval = make_eval_dict(exact_raw, f1_raw)
-  content = 'talker_F1 = ' +  str(out_eval['f1']) + ', talker_exact_match = ' + str(out_eval['exact']) + '\n'
-  
-  exact_raw, f1_raw = get_raw_scores('ripple')
-  out_eval = make_eval_dict(exact_raw, f1_raw)
-  content += 'ripple_F1 = ' +  str(out_eval['f1']) + ', ripple_exact_match = ' + str(out_eval['exact']) + '\n'
-  exact_raw, f1_raw = get_raw_scores('thinker')
-  out_eval = make_eval_dict(exact_raw, f1_raw)
-  content += 'thinker_F1 = ' +  str(out_eval['f1']) + ', thinker_exact_match = ' + str(out_eval['exact']) + '\n'
-  exact_raw, f1_raw = get_raw_scores('bert')
-  out_eval = make_eval_dict(exact_raw, f1_raw)
-  content += 'bert_F1 = ' +  str(out_eval['f1']) + ', bert_exact_match = ' + str(out_eval['exact']) + '\n'
-  
+  content = ''
+  for alg in ['doctalk', 'bert']:
+    exact_raw, f1_raw = get_raw_scores(alg)
+    out_eval = make_eval_dict(exact_raw, f1_raw)
+    content += alg +':\n'
+    content += 'F1 = ' +  str(out_eval['f1']) + ', exact_match = ' + str(out_eval['exact']) + '\n' 
   
   totalQ = out_eval['total']
   totalSentsList = jload( 'output/Total_Sents.json')
@@ -112,23 +106,13 @@ def main():
   avgNlpParsrDur = round(sum(nlpParseDurList)/len(totalWordsList), 5)
   doctalkSummDurList = jload( 'output/DoctalkSumm_duration.json')
   avgDoctalkSummDur = round(sum(doctalkSummDurList)/len(totalWordsList), 5)  
-  talker_QA_self_list = jload( 'output/QA_talk_self_duration.json')
-  avgTlkQaSelf = round(sum(talker_QA_self_list)/totalQ, 5)
-  talker_QA_bert_list = jload( 'output/QA_talk_bert_duration.json')
-  avgTlkQaBert = round(sum(talker_QA_bert_list)/totalQ, 5) 
+  qaDur_doctalk_self_list = jload( 'output/QA_doctalk_self_duration.json')
+  avgDoctalkQaSelf = round(sum(qaDur_doctalk_self_list)/totalQ, 5)
+  qaDur_doctalk_bert_list = jload( 'output/QA_doctalk_bert_duration.json')
+  avgDoctalkQaBert = round(sum(qaDur_doctalk_bert_list)/totalQ, 5) 
+  qaDur_BERT_bert_list = jload( 'output/QA_BERT_bert_duration.json')
+  avgBertQaBert = round(sum(qaDur_BERT_bert_list)/totalQ, 5)
 
-  ripple_QA_self_list = jload( 'output/QA_ripple_self_duration.json')
-  avgRiQaSelf = round(sum(ripple_QA_self_list)/totalQ, 5)
-  ripple_QA_bert_list = jload( 'output/QA_ripple_bert_duration.json')
-  avgRiQaBert = round(sum(ripple_QA_bert_list)/totalQ, 5) 
-
-  thinker_QA_self_list = jload( 'output/QA_thinker_self_duration.json')
-  avgThQaSelf = round(sum(thinker_QA_self_list)/totalQ, 5)
-  thinker_QA_bert_list = jload( 'output/QA_thinker_bert_duration.json')
-  avgThQaBert = round(sum(thinker_QA_bert_list)/totalQ, 5)
-
-  bert_QA_bert_list = jload( 'output/QA_bert_bert_duration.json')
-  avgBertQaBert = round(sum(bert_QA_bert_list)/totalQ, 5)
 
   stats = 'average Sentences: ' + str(avgSents) + '\n'
   stats += 'average words: ' + str(avgWords) + '\n'
@@ -137,14 +121,9 @@ def main():
   stats += 'average Doctak summarization duration per article (seconds): ' + str(avgDoctalkSummDur) + '\n' 
 
   stats += 'Total questions: ' + str(totalQ) + '\n'
-  stats += 'average talker self duration per question (seconds): ' + str(avgTlkQaSelf) + '\n' 
-  stats += 'average talker bert duration per question (seconds): ' + str(avgTlkQaBert) + '\n' 
-  stats += 'average ripple self duration per question (seconds): ' + str(avgRiQaSelf) + '\n' 
-  stats += 'average ripple bert duration per question (seconds): ' + str(avgRiQaBert) + '\n' 
-  stats += 'average thinker self duration per question (seconds): ' + str(avgThQaSelf) + '\n' 
-  stats += 'average thinker bert duration per question (seconds): ' + str(avgThQaBert) + '\n' 
-  stats += 'average Bert bert duration per question (seconds): ' + str(avgBertQaBert) + '\n' 
-
+  stats += 'average doctalk self duration per question (seconds): ' + str(avgDoctalkQaSelf) + '\n' 
+  stats += 'average doctalk bert duration per question (seconds): ' + str(avgDoctalkQaBert) + '\n'
+  stats += 'average BERT bert duration per question (seconds): ' + str(avgBertQaBert) + '\n' 
 
   print(stats )
   print("score:\n", content)

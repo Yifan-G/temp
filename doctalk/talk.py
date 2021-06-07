@@ -76,18 +76,6 @@ def chat_about(fname,qs=None) :
   t = Talker(from_file=fname + '.txt')
   t.show_all()
   t.query_with(qs)
-  
-  print('Total sentences:', t.totalSents)
-  print('Total words:', t.totalWords)
-
-  endQATime = time.time()
-  print("\n\nEndQATime(Seconds) =", endQATime)	
-  local_time = time.ctime(endQATime)
-  print("EndQATimeLocal time:", local_time)
-
-  print("Total duration(seconds): ", (endQATime - t.startTime))
-  print("Stanza nlp parse duration(seconds): ", (t.endParseTime - t.startTime))
-  print("doctalk Q&A duration(seconds): ", (endQATime - t.endParseTime))
 
 
 
@@ -729,92 +717,52 @@ def query_with(talker,qs_or_fname)     :
     qs = get_quests(qs_or_fname) # file name
   else :
     qs=qs_or_fname # list of questions or None
-  if qs:
-    for q in qs :
-      if not q :break
-      interact(q,talker)
-  else:
-    while True:
-      q=input('> ')
-      if not q : break
-      interact(q,talker)
-
-
-def query_with_allAlgorithms(talker,qs_or_fname)     :
-  ''' queries talker with questions from file or list'''
-  if isinstance(qs_or_fname,str) :
-    qs = get_quests(qs_or_fname) # file name
-  else :
-    qs=qs_or_fname # list of questions or None
   
-  talkAnswer = []
-  rippleAnswer = []
-  thinkAnswer = []
-  bertAnswer = []
-
+  answers = []
   if qs:
     for q in qs :
       if not q :break
-      talkA, rippleA, thinkA, bertA = interact_allAlgorithms(q,talker)
-      talkAnswer.append(talkA)
-      rippleAnswer.append(rippleA)
-      thinkAnswer.append(thinkA)
-      bertAnswer.append(bertA)
+      _, answer = interact(q,talker)
+      answers.append(answer)
+
   else:
     while True:
       q=input('> ')
       if not q : break
-      talkA, rippleA, thinkA, bertA = interact_allAlgorithms(q,talker)
-      talkAnswer.append(talkA)
-      rippleAnswer.append(rippleA)
-      thinkAnswer.append(thinkA)
-      bertAnswer.append(bertA)
-  return talkAnswer, rippleAnswer, thinkAnswer, bertAnswer
+      _, answer = interact(q,talker)
+      answers.append(answer)
+  return answers
 
 
 def interact(q,talker):
   ''' prints/says query and answers'''
   tprint('----- QUERY ----\n')
-  print("QUESTION: ",end='')
+  print("\n===========>QUESTION: ",end='')
   talker.say(q)
   print('')
   ### answer is computed here ###
+  startTime = time.time()
   if talker.params.stanza_parsing == True and talker.client.lang != 'en':
-    print('call answer_quest_nonenglish\n')
     answers,answerer=answer_quest_nonenglish(q, talker)
   else:
-    print('call answer_quest\n')
     answers,answerer=answer_quest(q, talker)
+  
   sentences = show_answers(talker,answers)
+
+  endTime = time.time()
+  talker.qaDuration['talk']['self'] += endTime - startTime
+
   shortened = talker.distill(q,answers,answerer)
   return sentences, shortened
 
-
-def interact_allAlgorithms(q,talker):
-  ''' prints/says query and answers'''
-  tprint('----- QUERY ----\n')
-  #print("\n===========>QUESTION: ",end='')
-  #talker.say(q)
-  #print('')
-  ### answer is computed here ###
-  startTime = time.time()
-  answers_talk,answerer=answer_quest( q, talker)
-  endTime = time.time()
-  talker.qaDuration['talker']['self'] += endTime - startTime
-
-  startTime = time.time()
-  answers_ripple,answerer=answer_quest_ripple(q, talker)
-  endTime = time.time()
-  talker.qaDuration['ripple']['self'] += endTime - startTime
-  return talker.distill_talker_ripple(q, answers_talk, answers_ripple, answerer)
 
 
 def show_answers(talker,answers) :
   results = []
   ''' prints out/says answers'''
-  print('ANSWERS:\n')
+  print('DOCTALK ANSWERS:\n')
   if not talker.params.with_refiner :
-    answers=take(talker.params.max_answers,answers)
+    answers=take(talker.params.top_answers,answers)
     if not talker.params.answers_by_rank:
       answers=sorted(answers)
   for id, sent, rank, shared in answers:
@@ -844,12 +792,10 @@ class Talker :
     '''creates data container from file or text document'''
     self.params=params
     self.from_file=from_file
-    self.content = from_text
     self.qaDuration = {
-      'talker': {'self':0, 'bert':0},
-      'ripple': {'self':0, 'bert':0},	
-      'thinker': {'self':0, 'bert':0},	
-      'bert': {'bert':0}
+      'talk': {'self':0, 'bert':0 },
+      'think': {'self':0, 'bert':0 },
+      'bert': {'bert':0 }
       }  
 
     self.startTime = time.time()
@@ -870,11 +816,7 @@ class Talker :
          self.db=extract_from_stanza(from_file=from_file)
          print("XXXXXXXXXXXXXXX")
        else:
-        with ropen(from_file) as f: 
-          self.content = f.read()  
-          print('\n\nTalker, self.from_file:\n', self.from_file)
-          #print('\n\nTalker, self.content:\n', self.content)      
-        self.db=load(from_file,self.params.force)
+         self.db=load(from_file,self.params.force)
    
     elif from_text :
       if params.stanza_parsing == True:
@@ -1549,29 +1491,27 @@ class Talker :
         occs=sorted(occs)
         f.write(f'svo{s,v,o,occs}.\n')
 
-  def get_gist(self, q,answers, from_text=False):
+  def get_gist(self, q,answers):
     ''' extract short answer from BERT
         using query and a few dozen doctalk best answers
     '''
-    if self.params.with_bert_qa ==0 : return
-    from transformers import pipeline
     #ranks=[a[2] for a in answers]
     #assert ranks==sorted(ranks,reverse=True)
     txt = ""
-    if from_text == True:
-      txt = self.content
-    else:
-      for a in answers:
-        sentId = a[0]
-        sent = a[1]
-        before = self.db[0][sentId][BEFORE]
-        ws = ""
-        for j in range(len(sent)):
-          ws += before[j] + sent[j]
-        txt += ' ' + ws
+    for a in answers:
+      sentId = a[0]
+      sent = a[1]
+      before = self.db[0][sentId][BEFORE]
+      ws = ""
+      for j in range(len(sent)):
+        ws += before[j] + sent[j]
+      txt += ' ' + ws
     if txt == "":
       return ""
-    #print('*********get_gist, txt to ask_bert:', txt)
+    
+    if self.params.with_bert_qa ==0 : return txt
+    from transformers import pipeline
+    print("\n===========>ask_bert:\n",txt,'<===========\n')
     r = ask_bert(txt, q, 0.0001)
     
     if not r :
@@ -1585,7 +1525,7 @@ class Talker :
       if r.endswith(remove):
         keepLen = len(r) - len(remove)
         r = r[:keepLen]
-    #print("===========>BERT SHORT ANSWER:",r,'<===========\n')
+    print("\n===========>BERT SHORT ANSWER:",r,'<===========\n')
     return r
 
   #Talker algorithm 
@@ -1594,26 +1534,6 @@ class Talker :
     overridable answer distillation opertation
     '''
     return self.get_gist(q,answers)
-
-
-  def distill_talker_ripple(self,q,answers_talk, answers_ripple, answerer):
-    '''
-    overridable answer distillation opertation
-    '''
-    print('\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
-    print('^^^^^^^^^, talk, distill, Talk^^^^^^^^^^^^')
-    print('\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
-
-    shortAnswerInTalk=self.get_gist(q, answers_talk)
-    
-    print('\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
-    print('^^^^^^^^^, talk, distill,Ripple^^^^^^^^^^^^')
-    print('\n^^^^^^^^^^^^^^^^^^^^^^^^^^\n')
-
-    shortAnswerInRipple=self.get_gist(q, answers_ripple)
-
-    return shortAnswerInTalk, shortAnswerInRipple
-
 
 
   def say(self,what):
@@ -1770,14 +1690,6 @@ def is_clean_sent(ls,known_ratio) :
   '''
   goods=[w for w in ls if w.isalpha() and w in wnet_words]
   return len(goods)>known_ratio*len(ls)
-
-def niceWithSentId(sentId, self) :
-  sent =self.db[0][sentId][SENT]
-  before = self.db[0][sentId][BEFORE]
-  ws = ""
-  for j in range(len(sent)):
-     ws += before[j] + sent[j]
-  return ws
 
 def nice(ws) :
   ''' aggregates word lists into a nicer looking sentence'''

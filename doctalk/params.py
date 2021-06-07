@@ -36,7 +36,7 @@ class talk_params:
                              # '' return pytalk summary by rank
                              #   'facebook/bart-large-cnn',  send summary to facebook bart-large-cnn, get final answer from bart-large-cnn
                              #   't5-large', send summary to google t5-large, get final answer from google t5-large
-    self.with_answerer=True # <== if False, it runs without calling corenlp parser for answerer
+    self.with_answerer=False # <== if False, it runs without calling corenlp parser for answerer
     # summary, and keyphrase set sizes
 
     self.top_sum = 9 # default number of sentences in summary
@@ -51,7 +51,7 @@ class talk_params:
     # query answering related
     self.top_answers = 4 # max number of answers directly shown
     # maximum answer sentences generated when passing them to BERT
-    self.max_answers = 4 #max(16,self.top_answers*(self.top_answers-1)/2) #todo
+    self.max_answers = max(16,self.top_answers*(self.top_answers-1)/2)
 
     self.cloud_size = 24 # word-cloud size
     self.subgraph_size = 42 # subgraph nodes number upper limit

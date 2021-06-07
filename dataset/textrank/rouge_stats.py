@@ -1,6 +1,16 @@
 import rouge
+from rouge import Rouge
 
-def rstat(all_hypothesis,all_references) :
+def rstat(all_hypothesis,all_references):
+    # pip install rouge
+    evaluator = Rouge()
+    scores = evaluator.get_scores(all_hypothesis, all_references)
+    for metric, results in sorted(scores.items(), key=lambda x: x[0]):
+        yield results
+        # come out for rouge n=1,n=2,l,w
+
+def rstat2(all_hypothesis,all_references) :
+  # pip install py-rouge
   for aggregator in ['Individual'] : #['Avg', 'Best', 'Individual']:
     apply_avg = aggregator == 'Avg'
     apply_best = aggregator == 'Best'

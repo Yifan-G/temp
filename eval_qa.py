@@ -662,12 +662,15 @@ def reason_with_doctalk(fname, askBert=0.1) :
   params.max_answers = 4 # need test
   params.with_bert_qa = askBert
   params.answers_by_rank = True
-  doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSumDur, doctalkQaDur= reason_with(fname, params=params)
+  try:
+    doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSumDur, doctalkQaDur= reason_with(fname, params=params)
+  except Exception:
+    print("Failed with " + str(fname))
   return doctalkAnswers, totalSents, totalWords, nlpParseDur, doctalkSumDur, doctalkQaDur
 
 
 def reason_with_bert(fname):
-    startTime = time.time()
+    startTime = time.process_time()
     with open(fname + '.txt','r',encoding='utf8') as f:
         content=f.read()
     with open(fname + '_quest.txt','r',encoding='utf8') as f:
@@ -686,7 +689,7 @@ def reason_with_bert(fname):
                 r = r[:keepLen]  
         print("\n===========>BERT SHORT ANSWER:",r,'<===========\n')
         answers.append(r)
-    endTime = time.time()
+    endTime = time.process_time()
     duration = endTime - startTime
     return answers, duration
   

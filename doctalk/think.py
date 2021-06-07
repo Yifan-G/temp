@@ -42,17 +42,17 @@ class Thinker(Talker) :
 
 
     # apply BERT pipeline to talk.py answers
-    startTime = time.time()
+    startTime = time.process_time()
 
     shortened = self.get_gist(q, answers)
 
-    endTime = time.time()
+    endTime = time.process_time()
     self.qaDuration['talk']['bert'] += endTime - startTime
 
     if not answerer:
       return shortened
     
-    startTime = time.time()
+    startTime = time.process_time()
     print('\nTHINK self starttime:', startTime)
     best=list(self.reason_about(answers,answerer))
     inf_answers = [(x[0], self.get_sentence(x[0]), x[1]) for x in best]
@@ -78,15 +78,15 @@ class Thinker(Talker) :
         print(x[0],end=': ')
         print(nice(self.get_sentence(x[0])), '\n')
       
-    endTime = time.time()
+    endTime = time.process_time()
     print('\nTHINK self endTime:', endTime)
     self.qaDuration['think']['self'] += endTime - startTime
 
     # apply BERT pipeline to inferred answers
-    startTime = time.time()
+    startTime = time.process_time()
     print('\nTHINK bert startTime:', startTime)
     shortened = self.get_gist(q,inf_answers)
-    endTime = time.time()
+    endTime = time.process_time()
     print('\nTHINK bert endTime:', endTime)
     self.qaDuration['think']['bert'] += endTime - startTime
     return shortened

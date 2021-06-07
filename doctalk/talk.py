@@ -741,7 +741,7 @@ def interact(q,talker):
   talker.say(q)
   print('')
   ### answer is computed here ###
-  startTime = time.time()
+  startTime = time.process_time()
   if talker.params.stanza_parsing == True and talker.client.lang != 'en':
     answers,answerer=answer_quest_nonenglish(q, talker)
   else:
@@ -749,7 +749,7 @@ def interact(q,talker):
   
   sentences = show_answers(talker,answers)
 
-  endTime = time.time()
+  endTime = time.process_time()
   talker.qaDuration['talk']['self'] += endTime - startTime
 
   shortened = talker.distill(q,answers,answerer)
@@ -798,7 +798,7 @@ class Talker :
       'bert': {'bert':0 }
       }  
 
-    self.startTime = time.time()
+    self.startTime = time.process_time()
     '''
     print("\n\nstarttime (Seconds) =", self.startTime)	
     local_time = time.ctime(self.startTime)
@@ -832,7 +832,7 @@ class Talker :
       assert from_file or from_text or from_json
 
     
-    self.endParseTime = time.time()
+    self.endParseTime = time.process_time()
     '''
     print("\n\nendParseTime(Seconds) =", self.endParseTime)	
     local_time = time.ctime(self.endParseTime)
@@ -873,7 +873,7 @@ class Talker :
     assert self.by_rank != None
 
     
-    self.doneSumkeysTime = time.time()
+    self.doneSumkeysTime = time.process_time()
     '''
     print("\n\ndoneSumkeysTime (Seconds) =", self.doneSumkeysTime)	
     local_time = time.ctime(self.doneSumkeysTime)
